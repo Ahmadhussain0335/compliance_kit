@@ -1,0 +1,77 @@
+name: Bug report
+description: Something does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **Security issues** (for example a redaction bypass or a verification bypass) must not be reported here; use [private reporting](https://github.com/Ahmadhussain0335/compliance_kit/security/advisories/new) instead.
+
+        Use **fake data only** in logs, screenshots and code. Never paste real personal data, tokens or keys.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - compliance_core
+        - compliance_logger
+        - compliance_gdpr
+        - compliance_integrity
+        - compliance_kit
+        - reference server (server/)
+        - documentation
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      placeholder: 0.1.0-beta.1
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest code or steps that show the problem, with fake data.
+      render: dart
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Output of `flutter --version`, platform (Android, iOS, web, server), OS version, and device model for compliance_integrity.
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Physical device or emulator/simulator? (compliance_integrity)
+      options:
+        - Not applicable
+        - Physical device
+        - Emulator or simulator
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output, redacted. Never include integrity tokens or key ids.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues.
+          required: true
+        - label: This report contains no real personal data, tokens or keys.
+          required: true

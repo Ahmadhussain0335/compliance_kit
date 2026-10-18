@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Ahmadhussain0335/compliance_kit/security/advisories/new
+    about: Please report security issues privately, not as public issues.
+  - name: Report device test results
+    url: https://github.com/Ahmadhussain0335/compliance_kit/issues/new?template=bug_report.yml&labels=device-report
+    about: Results from the compliance_integrity device checklist are very welcome, including successes.
