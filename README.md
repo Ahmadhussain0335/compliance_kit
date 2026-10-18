@@ -1,52 +1,77 @@
 # Compliance Kit
 
-Open-source Dart and Flutter packages that help apps implement privacy and security controls: PII-safe logging, GDPR consent, data export and deletion, and app integrity checks.
+Open-source Dart and Flutter packages that help apps implement privacy and security controls: PII-safe logging, GDPR consent, data export and deletion, and app integrity checks, all recording into one audit trail.
 
 [![CI](https://github.com/Ahmadhussain0335/compliance_kit/actions/workflows/ci.yaml/badge.svg)](https://github.com/Ahmadhussain0335/compliance_kit/actions/workflows/ci.yaml)
 
-## Packages
+## Which package do I need?
 
-| Package | Status | Platform | Use it when you need |
-|---|---|---|---|
-| [`compliance_core`](packages/compliance_core) | 0.1.0, ready for release | Pure Dart | An audit trail interface and shared exception types. Usually pulled in by the others. |
-| [`compliance_logger`](packages/compliance_logger) | 0.1.0, ready for release | Pure Dart | Logging that masks emails, phone numbers, tokens, API keys, card numbers and IBANs before any sink sees them. |
-| [`compliance_gdpr`](packages/compliance_gdpr) | Planned | Flutter | Granular consent with policy versioning, "export my data" and "delete my account" flows. |
-| [`compliance_integrity`](packages/compliance_integrity) | Planned | Flutter plugin | Play Integrity (Android) and App Attest (iOS) without Firebase. |
-| [`compliance_kit`](packages/compliance_kit) | Planned | Flutter | Everything above with one dependency and one setup call. |
-
-All packages share one `AuditTrail` from `compliance_core`, so redactions, consent changes, exports, deletions and integrity checks can be recorded in one place and shown to auditors. Audit events never contain personal data.
+| Package | Platform | Use it when you need |
+|---|---|---|
+| [`compliance_kit`](packages/compliance_kit) | Flutter | Everything below with one dependency and `ComplianceKit.init`. |
+| [`compliance_logger`](packages/compliance_logger) | Pure Dart (Flutter, server, web) | Logs and crash reports that never contain emails, phone numbers, tokens, API keys, card numbers or IBANs. |
+| [`compliance_gdpr`](packages/compliance_gdpr) | Flutter | Granular consent with policy versioning and an accessible UI; "export my data"; "delete my account". |
+| [`compliance_integrity`](packages/compliance_integrity) | Flutter plugin (Android, iOS) | Proof that requests come from your genuine app on a genuine device: Play Integrity and App Attest, no Firebase. |
+| [`compliance_core`](packages/compliance_core) | Pure Dart | The shared audit trail and exceptions. Pulled in by the others. |
+| [`server/`](server) | Dart (not published) | Reference server that verifies integrity tokens. |
 
 ## Quick start
 
+### Everything
+
 ```dart
-import 'package:compliance_core/compliance_core.dart';
-import 'package:compliance_logger/compliance_logger.dart';
+final kit = await ComplianceKit.init(appId: 'com.example.app', consentPolicy: policy);
+kit.logger.info('Signed in as jane.doe@example.com'); // ... [REDACTED:email]
+```
 
-final audit = InMemoryAuditTrail();
-final log = ComplianceLogger(name: 'app', auditTrail: audit);
+### Logger only
 
-void main() {
-  log.info('Password reset requested by jane.doe@example.com');
-  // ... [INFO] app: Password reset requested by [REDACTED:email]
+```dart
+final log = ComplianceLogger(name: 'app');
+log.warning('Payment failed', fields: {'card': '4111 1111 1111 1111'}); // {"card":"[REDACTED:credit_card]"}
+```
+
+### Consent, export, deletion
+
+```dart
+final consent = ConsentManager(policy: policy, store: myStore);
+await consent.initialize();
+if (consent.state.needsConsent) await showConsentDialog(context, manager: consent);
+consent.watch('analytics').listen(analytics.setEnabled);
+
+final exporter = DataExporter(appId: 'com.example.app')
+  ..register(CallbackDataSource('profile', profileDao.toJson));
+final export = await exporter.export();
+```
+
+### Integrity
+
+```dart
+final integrity = Integrity(cloudProjectNumber: 123456789012);
+final challenge = await api.challenge();
+if (await integrity.requestToken(challenge) case IntegritySuccess(:final token, :final kind)) {
+  await api.verify(token, kind, challenge); // your server decides
 }
 ```
 
-See each package README for details.
+## Guides
+
+See [docs/](docs): getting started, one guide per package, and [how to use the audit trail with auditors](docs/audit-trail.md).
 
 ## Development
 
-This repository is a [Dart pub workspace](https://dart.dev/tools/pub/workspaces) managed with [melos](https://melos.invertase.dev) 8.
+A [Dart pub workspace](https://dart.dev/tools/pub/workspaces) managed with [melos](https://melos.invertase.dev) 8.
 
 ```sh
-flutter pub get                               # resolve the whole workspace
-dart run melos run analyze --no-select        # dart analyze --fatal-infos in every package
-dart run melos run format                     # dart format .
-dart run melos run test --no-select           # all tests
-dart run melos run coverage --no-select       # pure Dart tests with a 90% line coverage gate
+flutter pub get                                  # resolve the whole workspace
+dart run melos run analyze --no-select
+dart run melos run format
+dart run melos run test --no-select
+dart run melos run coverage --no-select          # pure Dart packages, 90% line coverage gate
 dart run melos run publish-dry-run --no-select
 ```
 
-Requirements: Flutter 3.47.7 or newer stable (Dart 3.13.5). Packages declare `sdk: ^3.9.0`.
+Requirements: Flutter 3.47.7 stable (Dart 3.13.5) for development. Packages declare `sdk: ^3.9.0` and `flutter: >=3.35.0`. Release steps are in [RELEASE.md](RELEASE.md).
 
 ## Disclaimer
 
