@@ -1,9 +1,14 @@
 name: compliance_kit
-description: Umbrella package for Compliance Kit - re-exports compliance_core, compliance_logger, compliance_gdpr and compliance_integrity. Planned.
-version: 0.0.1
-publish_to: none
+description: Privacy and security toolkit for Flutter - PII-redacting logger, GDPR consent, export and deletion, and Play Integrity / App Attest checks with one shared audit trail.
+version: 0.1.0
 repository: https://github.com/Ahmadhussain0335/compliance_kit/tree/main/packages/compliance_kit
 issue_tracker: https://github.com/Ahmadhussain0335/compliance_kit/issues
+topics:
+  - privacy
+  - security
+  - gdpr
+  - compliance
+  - logging
 
 environment:
   sdk: ^3.9.0
@@ -12,6 +17,13 @@ environment:
 resolution: workspace
 
 dependencies:
+  compliance_core: ^0.1.0
+  compliance_gdpr: ^0.1.0
+  compliance_integrity: ^0.1.0
+  compliance_logger: ^0.1.0
   flutter:
     sdk: flutter
 
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
