@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 /// "Accept all" and "Reject all" buttons with equal visual weight.
 ///
 /// Both buttons always use the same widget type, the same [style] and the
-/// same width, so neither choice is visually favoured. They sit side by side
-/// when there is room and stack vertically on narrow screens or with large
-/// text.
+/// same width and height, so neither choice is visually favoured. They sit
+/// side by side when there is room and stack vertically on narrow screens or
+/// with large text.
 class ConsentChoiceButtons extends StatelessWidget {
   /// Creates the buttons.
   const ConsentChoiceButtons({
@@ -65,12 +65,17 @@ class ConsentChoiceButtons extends StatelessWidget {
             children: [reject, const SizedBox(height: 8), accept],
           );
         }
-        return Row(
-          children: [
-            Expanded(child: reject),
-            const SizedBox(width: 12),
-            Expanded(child: accept),
-          ],
+        // IntrinsicHeight + stretch keeps both buttons equally tall when
+        // one label wraps, for example in longer translations.
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: reject),
+              const SizedBox(width: 12),
+              Expanded(child: accept),
+            ],
+          ),
         );
       },
     );

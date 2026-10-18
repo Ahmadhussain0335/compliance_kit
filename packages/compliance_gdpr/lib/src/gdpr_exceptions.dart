@@ -9,3 +9,14 @@ class ConsentException extends ComplianceException {
   @override
   String get code => 'invalid_consent_operation';
 }
+
+/// Thrown by `RedactingDataSource` when redaction could not process the
+/// whole source (a rule failed, or a size or depth limit was reached), so
+/// the export is not silently incomplete.
+class IncompleteRedactionException extends ComplianceException {
+  /// Creates the exception.
+  const IncompleteRedactionException(super.message, {super.cause});
+
+  @override
+  String get code => 'incomplete_redaction';
+}

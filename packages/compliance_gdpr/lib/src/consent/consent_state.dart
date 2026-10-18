@@ -24,15 +24,25 @@ final class ConsentState {
     ConsentPolicy policy,
     List<ConsentRecord> history,
   ) {
+    // Only the latest record per purpose counts, whatever its version, so
+    // a later denial is never revived by switching back to an older policy
+    // version.
+    final latest = <String, ConsentRecord>{};
+    for (final record in history) {
+      latest[record.purposeId] = record;
+    }
     final current = <String, ConsentRecord>{};
     var hasOlder = false;
     String? previousVersion;
     for (final record in history) {
-      if (record.policyVersion == policy.version) {
-        current[record.purposeId] = record;
-      } else {
+      if (record.policyVersion != policy.version) {
         hasOlder = true;
         previousVersion = record.policyVersion;
+      }
+    }
+    for (final record in latest.values) {
+      if (record.policyVersion == policy.version) {
+        current[record.purposeId] = record;
       }
     }
     final optional = policy.optionalPurposes;
@@ -71,10 +81,16 @@ final class ConsentState {
   final ConsentStatus status;
 
   /// The most recent older policy version found in the history, if any.
+  /// While this is set and [needsConsent] is `true`, the UI shows the
+  /// policy-changed notice.
   final String? previousPolicyVersion;
 
   /// Whether the consent prompt should be shown.
   bool get needsConsent => status != ConsentStatus.upToDate;
+
+  /// Whether the user should be told that the policy changed: consent is
+  /// needed and decisions under an older version exist.
+  bool get policyChangedNotice => needsConsent && previousPolicyVersion != null;
 
   /// Whether processing for [purposeId] is allowed.
   ///

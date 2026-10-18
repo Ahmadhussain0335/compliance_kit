@@ -88,15 +88,20 @@ Future<void> main() async {
   final deletion =
       DataDeletionManager(
           // Replace with a call to your backend's account deletion endpoint.
-          serverDeletion: () =>
-              Future<void>.delayed(const Duration(milliseconds: 500)),
+          // Return skipped when the account is already gone (404/401).
+          serverDeletion: () => Future.delayed(
+            const Duration(milliseconds: 500),
+            () => ErasureStatus.deleted,
+          ),
           auditTrail: audit,
         )
         ..register(CallbackDataEraser('profile', db.wipeProfile))
         ..register(CallbackDataEraser('notes', db.wipeNotes))
+        // Whether consent records must be kept as proof of consent after an
+        // erasure request is a legal decision; this demo deletes them.
         ..register(
           CallbackDataEraser('consent_records', () async {
-            await consent.store.clear();
+            await consent.reset();
             return ErasureStatus.deleted;
           }),
         );
@@ -184,10 +189,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // Start or stop analytics as soon as consent changes.
     _analytics = widget.consent.watch('analytics').listen((granted) {
-      setState(() => _analyticsRunning = granted);
+      if (mounted) setState(() => _analyticsRunning = granted);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (widget.consent.state.needsConsent) {
+      if (mounted && widget.consent.state.needsConsent) {
         await showConsentDialog(context, manager: widget.consent);
       }
     });
@@ -201,15 +206,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _export() async {
     final export = await widget.exporter.export(
-      onProgress: (p) =>
-          setState(() => _status = 'Exporting ${p.completed}/${p.total}...'),
+      onProgress: (p) {
+        if (mounted) {
+          setState(() => _status = 'Exporting ${p.completed}/${p.total}...');
+        }
+      },
     );
+    if (!mounted) return;
     setState(
       () => _status = export.isComplete
           ? 'Export complete: ${export.suggestedFileName}'
           : 'Export finished with ${export.failures.length} failed source(s)',
     );
-    if (!mounted) return;
     // A real app would write the file and open the share sheet.
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -244,6 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ) ??
           false,
     );
+    if (!mounted) return;
     setState(() {
       _status = report.cancelled
           ? 'Deletion cancelled'

@@ -164,6 +164,7 @@ final class DataExporter {
   DataExporter({
     required this.appId,
     this.auditTrail,
+    this.onAuditError,
     this.sourceTimeout = const Duration(seconds: 30),
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
@@ -173,8 +174,12 @@ final class DataExporter {
   /// App identifier written to the export.
   final String appId;
 
-  /// Optional audit trail for `data_exported` events.
+  /// Optional audit trail for `data_exported` events. Recorded in the
+  /// background; a slow trail does not delay the export.
   final AuditTrail? auditTrail;
+
+  /// Called when recording an audit event fails.
+  final void Function(Object error)? onAuditError;
 
   /// Maximum time per source.
   final Duration sourceTimeout;
@@ -213,7 +218,8 @@ final class DataExporter {
   }
 
   /// Exports every registered source, one after another, reporting
-  /// [onProgress] after each.
+  /// [onProgress] after each. An exception thrown by [onProgress] is
+  /// ignored and does not stop the export.
   Future<DataExport> export({
     void Function(ExportProgress progress)? onProgress,
   }) async {
@@ -222,21 +228,25 @@ final class DataExporter {
     for (final source in sources) {
       final result = await _exportOne(source);
       results.add(result);
-      onProgress?.call(
-        ExportProgress(
-          completed: results.length,
-          total: sources.length,
-          sourceId: source.id,
-          status: result.status,
-        ),
-      );
+      try {
+        onProgress?.call(
+          ExportProgress(
+            completed: results.length,
+            total: sources.length,
+            sourceId: source.id,
+            status: result.status,
+          ),
+        );
+      } on Object {
+        // A broken progress callback must not abort the export.
+      }
     }
     final export = DataExport(
       appId: appId,
       exportedAt: _clock(),
       results: results,
     );
-    await _audit(export);
+    _audit(export);
     return export;
   }
 
@@ -276,24 +286,35 @@ final class DataExporter {
     }
   }
 
-  Future<void> _audit(DataExport export) async {
+  void _audit(DataExport export) {
     final trail = auditTrail;
     if (trail == null) return;
     try {
-      await trail.record(
-        AuditEvent(
-          type: GdprAuditEvents.dataExported,
-          source: GdprAuditEvents.source,
-          timestamp: export.exportedAt,
-          metadata: {
-            'sources': export.results.length,
-            'failed': export.failures.length,
-            'complete': export.isComplete,
-          },
-        ),
-      );
+      trail
+          .record(
+            AuditEvent(
+              type: GdprAuditEvents.dataExported,
+              source: GdprAuditEvents.source,
+              timestamp: export.exportedAt,
+              metadata: {
+                'sources': export.results.length,
+                'failed': export.failures.length,
+                'complete': export.isComplete,
+              },
+            ),
+          )
+          .then<void>((_) {}, onError: _reportAuditError)
+          .ignore();
+    } on Object catch (e) {
+      _reportAuditError(e);
+    }
+  }
+
+  void _reportAuditError(Object error) {
+    try {
+      onAuditError?.call(error);
     } on Object {
-      // A failing audit trail must not break the export.
+      // The error handler must not break the export.
     }
   }
 }

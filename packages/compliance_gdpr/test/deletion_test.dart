@@ -27,6 +27,8 @@ class _FakeStore {
   }
 }
 
+Future<bool> _yes() async => true;
+
 void main() {
   late InMemoryAuditTrail trail;
 
@@ -46,19 +48,25 @@ void main() {
   test('deletes server data first, then every local source', () async {
     final calls = <String>[];
     final db = _FakeStore();
-    final deletion = manager(server: () async => calls.add('server'))
-      ..register(
-        CallbackDataEraser('db', () {
-          calls.add('db');
-          return db.erase();
-        }),
-      )
-      ..register(
-        CallbackDataEraser('cache', () async {
-          calls.add('cache');
-          return ErasureStatus.skipped;
-        }),
-      );
+    final deletion =
+        manager(
+            server: () async {
+              calls.add('server');
+              return ErasureStatus.deleted;
+            },
+          )
+          ..register(
+            CallbackDataEraser('db', () {
+              calls.add('db');
+              return db.erase();
+            }),
+          )
+          ..register(
+            CallbackDataEraser('cache', () async {
+              calls.add('cache');
+              return ErasureStatus.skipped;
+            }),
+          );
 
     final report = await deletion.deleteAll(confirm: () async => true);
     expect(calls, ['server', 'db', 'cache']);
@@ -100,7 +108,7 @@ void main() {
     final db = _FakeStore();
     final deletion = manager(server: () async => throw StateError('503'))
       ..register(CallbackDataEraser('db', db.erase));
-    final report = await deletion.deleteAll();
+    final report = await deletion.deleteAll(confirm: _yes);
     expect(report.server!.status, ErasureStatus.failed);
     expect(report.server!.reason, DataDeletionManager.reasonError);
     expect(report.server!.error, isA<StateError>());
@@ -117,7 +125,7 @@ void main() {
       server: () async => throw StateError('503'),
       eraseLocalWhenServerFails: true,
     )..register(CallbackDataEraser('db', db.erase));
-    final report = await deletion.deleteAll();
+    final report = await deletion.deleteAll(confirm: _yes);
     expect(report.local.single.status, ErasureStatus.deleted);
     expect(report.needsRetry.map((s) => s.id), ['server']);
   });
@@ -152,7 +160,7 @@ void main() {
           ),
         );
 
-      final first = await deletion.deleteAll();
+      final first = await deletion.deleteAll(confirm: _yes);
       expect(first.local.map((r) => r.status), [
         ErasureStatus.failed,
         ErasureStatus.deleted,
@@ -180,9 +188,10 @@ void main() {
       server: () async {
         serverCalls++;
         if (serverCalls == 1) throw StateError('offline');
+        return ErasureStatus.deleted;
       },
     )..register(CallbackDataEraser('db', _FakeStore().erase));
-    final first = await deletion.deleteAll();
+    final first = await deletion.deleteAll(confirm: _yes);
     final second = await deletion.retry(first);
     expect(serverCalls, 2);
     expect(second.isComplete, isTrue);
@@ -191,8 +200,8 @@ void main() {
   test('running twice is safe and idempotent', () async {
     final db = _FakeStore();
     final deletion = manager()..register(CallbackDataEraser('db', db.erase));
-    final first = await deletion.deleteAll();
-    final second = await deletion.deleteAll();
+    final first = await deletion.deleteAll(confirm: _yes);
+    final second = await deletion.deleteAll(confirm: _yes);
     expect(first.local.single.status, ErasureStatus.deleted);
     expect(second.local.single.status, ErasureStatus.skipped);
     expect(second.isComplete, isTrue);
@@ -209,8 +218,8 @@ void main() {
           return ErasureStatus.deleted;
         }),
       );
-    final a = deletion.deleteAll();
-    final b = deletion.deleteAll();
+    final a = deletion.deleteAll(confirm: _yes);
+    final b = deletion.deleteAll(confirm: _yes);
     expect(deletion.isRunning, isTrue);
     expect(identical(a, b), isTrue);
     gate.complete();
@@ -238,7 +247,7 @@ void main() {
   test('a failing audit trail does not block deletion', () async {
     final report = await DataDeletionManager(
       auditTrail: _FailingTrail(),
-    ).deleteAll();
+    ).deleteAll(confirm: _yes);
     expect(report.isComplete, isTrue);
     expect(report.server, isNull);
   });

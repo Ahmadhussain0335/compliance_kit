@@ -13,11 +13,15 @@ import 'consent_strings.dart';
 /// While consent is still needed (first launch or policy change), a
 /// "Confirm choices" button stores the current switch positions, so
 /// purposes the user left off are recorded as denied.
+///
+/// If storing a change fails, a snack bar with `ConsentStrings.saveFailed`
+/// is shown and [onError] is called.
 class PrivacySettingsScreen extends StatefulWidget {
   /// Creates the screen.
   const PrivacySettingsScreen({
     required this.manager,
     this.strings = const ConsentStrings(),
+    this.onError,
     super.key,
   });
 
@@ -26,6 +30,9 @@ class PrivacySettingsScreen extends StatefulWidget {
 
   /// User-facing strings.
   final ConsentStrings strings;
+
+  /// Called when storing a change failed.
+  final void Function(Object error, StackTrace stackTrace)? onError;
 
   @override
   State<PrivacySettingsScreen> createState() => _PrivacySettingsScreenState();
@@ -38,6 +45,13 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     setState(() => _busy = true);
     try {
       await action();
+    } on Object catch (e, st) {
+      widget.onError?.call(e, st);
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(
+          context,
+        )?.showSnackBar(SnackBar(content: Text(widget.strings.saveFailed)));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -70,7 +84,7 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
                 ),
                 child: Text(strings.settingsIntro),
               ),
-              if (state.status == ConsentStatus.policyChanged)
+              if (state.policyChangedNotice)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(

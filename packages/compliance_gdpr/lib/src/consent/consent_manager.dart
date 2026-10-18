@@ -28,6 +28,7 @@ final class ConsentManager {
     required this.policy,
     ConsentStore? store,
     this.auditTrail,
+    this.onAuditError,
     DateTime Function()? clock,
   }) : store = store ?? InMemoryConsentStore(),
        _clock = clock ?? DateTime.now;
@@ -38,8 +39,13 @@ final class ConsentManager {
   /// Where consent records are stored.
   final ConsentStore store;
 
-  /// Optional audit trail.
+  /// Optional audit trail. Events are recorded in the background, so a
+  /// slow or failing trail never delays or blocks a consent change.
   final AuditTrail? auditTrail;
+
+  /// Called when recording an audit event fails, so the app can notice lost
+  /// audit evidence. Receives the error only, never the event data.
+  final void Function(Object error)? onAuditError;
 
   final DateTime Function() _clock;
   final StreamController<ConsentState> _changes =
@@ -70,13 +76,24 @@ final class ConsentManager {
   /// every change. Use it to start or stop processing immediately, for
   /// example to disable analytics when consent is withdrawn.
   ///
-  /// Throws [ConsentException] for an unknown purpose.
+  /// Throws [ConsentException] for an unknown purpose. If the stream is
+  /// listened to before [initialize] completes, it emits a
+  /// [ComplianceStateException] error and closes.
   Stream<bool> watch(String purposeId) {
     _purposeOrThrow(purposeId);
     StreamSubscription<ConsentState>? subscription;
     late final StreamController<bool> controller;
     controller = StreamController<bool>(
       onListen: () {
+        if (_state == null) {
+          controller.addError(
+            const ComplianceStateException(
+              'ConsentManager.initialize() must complete before watch().',
+            ),
+          );
+          unawaited(controller.close());
+          return;
+        }
         var last = state.isGranted(purposeId);
         controller.add(last);
         subscription = changes.listen((next) {
@@ -102,7 +119,7 @@ final class ConsentManager {
     final next = ConsentState.fromHistory(policy, history);
     _state = next;
     if (next.status == ConsentStatus.policyChanged) {
-      await _audit(GdprAuditEvents.consentPolicyChanged, {
+      _audit(GdprAuditEvents.consentPolicyChanged, {
         'previous_version': next.previousPolicyVersion,
         'policy_version': policy.version,
       });
@@ -179,19 +196,33 @@ final class ConsentManager {
     _state = next;
     _emit(next);
     for (final (type, purposeId) in events) {
-      await _audit(type, {
-        'purpose': purposeId,
-        'policy_version': policy.version,
-      });
+      _audit(type, {'purpose': purposeId, 'policy_version': policy.version});
     }
   });
 
   /// Returns the full stored history, oldest first. Use it to show the user
   /// or an auditor when consent was given or withdrawn.
-  Future<List<ConsentRecord>> history() => store.load();
+  Future<List<ConsentRecord>> history() => _serialized(store.load);
 
-  /// Closes the [changes] stream.
-  Future<void> dispose() => _changes.close();
+  /// Deletes every stored consent record and resets the state to
+  /// [ConsentStatus.notAsked], notifying [changes] and [watch] listeners.
+  ///
+  /// Use this from a `DataEraser` when deleting an account, instead of
+  /// clearing the store directly. Whether consent records must be kept as
+  /// proof of consent after an erasure request is a legal decision for your
+  /// organisation.
+  Future<void> reset() => _serialized(() async {
+    await store.clear();
+    final next = ConsentState.fromHistory(policy, const []);
+    _state = next;
+    _emit(next);
+  });
+
+  /// Waits for pending changes, then closes the [changes] stream.
+  Future<void> dispose() async {
+    await _pending;
+    await _changes.close();
+  }
 
   ConsentPurpose _purposeOrThrow(String purposeId) {
     final purpose = policy.purpose(purposeId);
@@ -205,26 +236,38 @@ final class ConsentManager {
     if (!_changes.isClosed) _changes.add(state);
   }
 
-  Future<void> _audit(String type, Map<String, Object?> metadata) async {
+  /// Records an audit event without waiting for the trail.
+  void _audit(String type, Map<String, Object?> metadata) {
     final trail = auditTrail;
     if (trail == null) return;
     try {
-      await trail.record(
-        AuditEvent(
-          type: type,
-          source: GdprAuditEvents.source,
-          timestamp: _clock(),
-          metadata: metadata,
-        ),
-      );
+      trail
+          .record(
+            AuditEvent(
+              type: type,
+              source: GdprAuditEvents.source,
+              timestamp: _clock(),
+              metadata: metadata,
+            ),
+          )
+          .then<void>((_) {}, onError: _reportAuditError)
+          .ignore();
+    } on Object catch (e) {
+      _reportAuditError(e);
+    }
+  }
+
+  void _reportAuditError(Object error) {
+    try {
+      onAuditError?.call(error);
     } on Object {
-      // A failing audit trail must not block consent changes.
+      // The error handler must not break consent handling.
     }
   }
 
   /// Runs [action] after every previously queued action, so concurrent
   /// calls cannot interleave their reads and writes.
-  Future<void> _serialized(Future<void> Function() action) {
+  Future<T> _serialized<T>(Future<T> Function() action) {
     final result = _pending.then((_) => action());
     _pending = result.then<void>((_) {}, onError: (Object _) {});
     return result;

@@ -1,5 +1,7 @@
 import 'package:compliance_logger/compliance_logger.dart';
 
+import '../gdpr_exceptions.dart';
+
 /// A place where the app stores the user's data, for example a database
 /// table, preferences or files.
 ///
@@ -39,6 +41,16 @@ final class CallbackDataSource extends DataSource {
 /// personal data about other people, which should not be handed to the
 /// requesting user. Redaction is pattern-based and cannot find every kind
 /// of personal data; review what such sources contain.
+///
+/// Do not wrap sources holding the user's own data (profile, settings): the
+/// default sensitive keys and rules would also mask the user's own email or
+/// phone, making the export incomplete.
+///
+/// If redaction cannot process the whole source (a rule failed, or the
+/// redactor's `maxCollectionLength` or `maxDepth` was reached), [export]
+/// throws [IncompleteRedactionException], so the source is reported as
+/// failed instead of being silently cut. Pass a `Redactor` with higher
+/// limits for large sources.
 final class RedactingDataSource extends DataSource {
   /// Creates a redacting wrapper around [inner].
   const RedactingDataSource(this.inner, this.redactor);
@@ -53,5 +65,20 @@ final class RedactingDataSource extends DataSource {
   String get id => inner.id;
 
   @override
-  Future<Object?> export() async => redactor.redactValue(await inner.export());
+  Future<Object?> export() async {
+    final counts = <String, int>{};
+    final result = redactor.redactValue(await inner.export(), counts: counts);
+    for (final key in const [
+      Redactor.failureRuleId,
+      Redactor.truncatedRuleId,
+      Redactor.maxDepthRuleId,
+    ]) {
+      if (counts.containsKey(key)) {
+        throw IncompleteRedactionException(
+          'Redaction of source "$id" was incomplete ($key).',
+        );
+      }
+    }
+    return result;
+  }
 }

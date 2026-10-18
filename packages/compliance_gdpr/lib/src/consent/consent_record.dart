@@ -27,6 +27,12 @@ final class ConsentRecord {
         version is! String) {
       throw const ConsentException('Malformed consent record.');
     }
+    if (!_purposeId.hasMatch(purposeId) ||
+        purposeId.length > 48 ||
+        version.isEmpty ||
+        version.length > 64) {
+      throw const ConsentException('Malformed consent record values.');
+    }
     final parsed = DateTime.tryParse(timestamp);
     if (parsed == null) {
       throw const ConsentException('Malformed consent record timestamp.');
@@ -38,6 +44,8 @@ final class ConsentRecord {
       policyVersion: version,
     );
   }
+
+  static final RegExp _purposeId = RegExp(r'^[a-z][a-z0-9_]*$');
 
   /// The purpose the decision applies to.
   final String purposeId;

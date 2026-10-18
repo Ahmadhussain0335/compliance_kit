@@ -91,7 +91,12 @@ The document looks like this:
 
 ```dart
 final deletion = DataDeletionManager(
-  serverDeletion: () => api.deleteAccount(), // throw on failure
+  // Return deleted, or skipped if the account is already gone (404/401).
+  // Throw on any other failure.
+  serverDeletion: () async {
+    final status = await api.deleteAccount();
+    return status == 404 ? ErasureStatus.skipped : ErasureStatus.deleted;
+  },
   auditTrail: auditTrail,
 )
   ..register(CallbackDataEraser('database', () async {
@@ -100,6 +105,13 @@ final deletion = DataDeletionManager(
   }))
   ..register(CallbackDataEraser('preferences', () async {
     await prefs.clear();
+    return ErasureStatus.deleted;
+  }))
+  // Use consent.reset() rather than clearing the store, so listeners stop
+  // analytics immediately. Whether to keep consent records as proof of
+  // consent is a legal decision.
+  ..register(CallbackDataEraser('consent', () async {
+    await consent.reset();
     return ErasureStatus.deleted;
   }));
 
@@ -111,7 +123,13 @@ if (!report.isComplete) {
 }
 ```
 
-Flow: confirmation, then `data_deletion_requested`, then the server callback, then each local eraser, then `data_deletion_completed`. If the server step fails, local data is kept by default so the signed-in user can retry. Set `eraseLocalWhenServerFails: true` to change that.
+Flow: confirmation (required), then `data_deletion_requested`, then the server callback, then each local eraser, then `data_deletion_completed`. If the server step fails, local data is kept by default so the signed-in user can retry. Set `eraseLocalWhenServerFails: true` to change that.
+
+Erasers must be idempotent and must tolerate being called again while a timed-out earlier call is still finishing. `retry` on a cancelled or complete report returns it unchanged.
+
+### Audit trail behaviour
+
+All three managers record audit events in the background: a slow or failing trail never delays consent changes, exports or deletions. Pass `onAuditError` to find out when an event could not be recorded. `consent_policy_changed` is recorded at every `initialize()` while consent from an older version is pending.
 
 ## API overview
 
@@ -137,7 +155,8 @@ Flow: confirmation, then `data_deletion_requested`, then the server callback, th
 
 - "Accept all" and "Reject all" use the same widget, the same style and the same width. A custom `buttonStyle` is applied to both.
 - The prompt cannot be dismissed without a choice; rejecting is one tap.
-- Withdrawing in the settings screen is a single toggle that applies immediately.
+- Withdrawing in the settings screen is a single toggle that applies immediately. If saving fails, the prompt shows an inline error and the settings screen a snack bar (`ConsentStrings.saveFailed`); pass `onError` to log it.
+- The dialog and sheet block the system back gesture until the user chooses.
 - Buttons stack vertically on narrow screens or with large text. Headings are marked for screen readers, and switches carry the purpose title as their label.
 - The widgets use your `Theme`. Override any text with `ConsentStrings` (pass localized strings from your l10n setup).
 
@@ -184,7 +203,7 @@ This package handles the mechanics. Your app and organisation still need to:
 ## Limitations
 
 - Consent is stored per device and app install. Syncing consent across devices or with a backend is up to the app.
-- `RedactingDataSource` is pattern-based and cannot find names or free-text personal data.
+- `RedactingDataSource` is pattern-based and cannot find names or free-text personal data. Do not wrap sources with the user's own data. If the redactor hits its size or depth limits, the source is reported as failed (`IncompleteRedactionException`); pass a `Redactor` with higher `maxCollectionLength` for large logs.
 - Export holds all data in memory. Very large exports (media files) should be delivered separately, for example as download links.
 - The UI uses Material widgets. Cupertino apps can build their own UI on `ConsentManager`.
 

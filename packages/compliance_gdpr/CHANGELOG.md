@@ -6,4 +6,6 @@
 - Consent UI: `showConsentDialog`, `showConsentBottomSheet`, `ConsentPrompt`, `PrivacySettingsScreen`, `ConsentChoiceButtons`. Equal-weight accept/reject, overridable strings, large-text and screen-reader support.
 - `DataExporter` with `DataSource`, `CallbackDataSource` and `RedactingDataSource`; one JSON document with per-source status and progress reporting.
 - `DataDeletionManager` with `DataEraser`, server deletion callback, confirmation step, per-step report, retry and concurrent-call protection.
+- Audit events are recorded in the background, with `onAuditError` for failures.
+- `ConsentManager.reset()` for account deletion.
 - Audit events: `consent_granted`, `consent_denied`, `consent_withdrawn`, `consent_policy_changed`, `data_exported`, `data_deletion_requested`, `data_deletion_completed`.

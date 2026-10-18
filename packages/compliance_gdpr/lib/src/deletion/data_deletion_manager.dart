@@ -7,10 +7,12 @@ import 'data_eraser.dart';
 
 /// Calls the app's backend to delete the account and server-side data.
 ///
-/// Complete normally when the backend accepted the request; throw on
-/// failure. The package does not know your API; authenticate the request
-/// the same way as other calls.
-typedef ServerDeletionCallback = Future<void> Function();
+/// Return [ErasureStatus.deleted] when the backend accepted the request,
+/// and [ErasureStatus.skipped] when the account no longer exists (for
+/// example the backend answers 404 or 401 after an earlier successful
+/// deletion), so a repeated run can still erase local data. Throw on any
+/// other failure. Authenticate the request the same way as other calls.
+typedef ServerDeletionCallback = Future<ErasureStatus> Function();
 
 /// Result for one deletion step.
 final class SourceDeletionResult {
@@ -83,8 +85,8 @@ final class DeletionReport {
 /// callback, then every registered local [DataEraser].
 ///
 /// Flow of [deleteAll]:
-/// 1. Ask for confirmation through `confirm`, if given. If it returns
-///    `false`, nothing is deleted.
+/// 1. Ask for confirmation through `confirm`. If it returns `false`,
+///    nothing is deleted.
 /// 2. Record `data_deletion_requested`.
 /// 3. Call [serverDeletion], if set. If it fails and
 ///    [eraseLocalWhenServerFails] is `false` (the default), local data is
@@ -93,14 +95,22 @@ final class DeletionReport {
 /// 4. Run every eraser. A failing eraser does not stop the others.
 /// 5. Record `data_deletion_completed` with counts.
 ///
-/// Calling [deleteAll] while a run is in progress returns the running
-/// operation instead of starting a second one.
+/// Calling [deleteAll] or [retry] while a run is in progress returns the
+/// running operation instead of starting a second one.
+///
+/// A step that exceeds [stepTimeout] is reported as failed, but its work
+/// may still be running in the background. Erasers must therefore tolerate
+/// being called again while an earlier call is still finishing.
+///
+/// Audit events are recorded in the background, so a slow audit trail never
+/// delays deletion.
 final class DataDeletionManager {
   /// Creates a manager.
   DataDeletionManager({
     this.serverDeletion,
     this.eraseLocalWhenServerFails = false,
     this.auditTrail,
+    this.onAuditError,
     this.stepTimeout = const Duration(seconds: 60),
     DateTime Function()? clock,
   }) : _clock = clock ?? DateTime.now;
@@ -130,6 +140,9 @@ final class DataDeletionManager {
 
   /// Optional audit trail.
   final AuditTrail? auditTrail;
+
+  /// Called when recording an audit event fails.
+  final void Function(Object error)? onAuditError;
 
   /// Maximum time per step.
   final Duration stepTimeout;
@@ -173,28 +186,37 @@ final class DataDeletionManager {
 
   /// Deletes the account and all registered local data. See the class
   /// documentation for the flow.
-  Future<DeletionReport> deleteAll({Future<bool> Function()? confirm}) =>
-      _guard(() async {
-        if (confirm != null && !await confirm()) {
-          return DeletionReport(
-            cancelled: true,
-            server: null,
-            local: const [],
-            finishedAt: _clock(),
-          );
-        }
-        return _run(
-          runServer: serverDeletion != null,
-          erasers: List.of(_erasers),
-          missing: const [],
-        );
-      });
+  ///
+  /// [confirm] is required so that deletion always has a confirmation step;
+  /// the app decides how to ask (a dialog, re-authentication, a typed
+  /// confirmation). Return `false` to cancel.
+  Future<DeletionReport> deleteAll({
+    required Future<bool> Function() confirm,
+  }) => _guard(() async {
+    if (!await confirm()) {
+      return DeletionReport(
+        cancelled: true,
+        server: null,
+        local: const [],
+        finishedAt: _clock(),
+      );
+    }
+    return _run(
+      runServer: serverDeletion != null,
+      erasers: List.of(_erasers),
+      missing: const [],
+    );
+  });
 
   /// Runs again only the steps of [previous] that need a retry.
   ///
   /// No confirmation is asked, because the user already confirmed the
-  /// original request.
+  /// original request. If [previous] was cancelled or has nothing to retry,
+  /// it is returned unchanged and nothing runs.
   Future<DeletionReport> retry(DeletionReport previous) => _guard(() {
+    if (previous.cancelled || previous.needsRetry.isEmpty) {
+      return Future.value(previous);
+    }
     final ids = {for (final s in previous.needsRetry) s.id};
     final erasers = [
       for (final e in _erasers)
@@ -224,17 +246,14 @@ final class DataDeletionManager {
     required List<DataEraser> erasers,
     required List<String> missing,
   }) async {
-    await _audit(GdprAuditEvents.dataDeletionRequested, {
+    _audit(GdprAuditEvents.dataDeletionRequested, {
       'server': runServer,
       'local_steps': erasers.length,
     });
 
     SourceDeletionResult? server;
     if (runServer) {
-      server = await _step(serverStepId, () async {
-        await serverDeletion!();
-        return ErasureStatus.deleted;
-      });
+      server = await _step(serverStepId, serverDeletion!);
     }
     final serverFailed = server?.status == ErasureStatus.failed;
     final local = <SourceDeletionResult>[];
@@ -266,7 +285,7 @@ final class DataDeletionManager {
       local: local,
       finishedAt: _clock(),
     );
-    await _audit(GdprAuditEvents.dataDeletionCompleted, {
+    _audit(GdprAuditEvents.dataDeletionCompleted, {
       'complete': report.isComplete,
       'deleted': report.steps
           .where((s) => s.status == ErasureStatus.deleted)
@@ -314,20 +333,31 @@ final class DataDeletionManager {
     }
   }
 
-  Future<void> _audit(String type, Map<String, Object?> metadata) async {
+  void _audit(String type, Map<String, Object?> metadata) {
     final trail = auditTrail;
     if (trail == null) return;
     try {
-      await trail.record(
-        AuditEvent(
-          type: type,
-          source: GdprAuditEvents.source,
-          timestamp: _clock(),
-          metadata: metadata,
-        ),
-      );
+      trail
+          .record(
+            AuditEvent(
+              type: type,
+              source: GdprAuditEvents.source,
+              timestamp: _clock(),
+              metadata: metadata,
+            ),
+          )
+          .then<void>((_) {}, onError: _reportAuditError)
+          .ignore();
+    } on Object catch (e) {
+      _reportAuditError(e);
+    }
+  }
+
+  void _reportAuditError(Object error) {
+    try {
+      onAuditError?.call(error);
     } on Object {
-      // A failing audit trail must not block deletion.
+      // The error handler must not break deletion.
     }
   }
 }

@@ -11,7 +11,8 @@ import 'privacy_settings_screen.dart';
 /// to choose per purpose.
 ///
 /// Usually shown with [showConsentDialog] or [showConsentBottomSheet].
-/// [onDone] is called after the user made a choice.
+/// [onDone] is called after the user made a choice. If storing the choice
+/// fails, an error message is shown in the prompt and [onError] is called.
 class ConsentPrompt extends StatefulWidget {
   /// Creates the prompt.
   const ConsentPrompt({
@@ -19,6 +20,7 @@ class ConsentPrompt extends StatefulWidget {
     this.strings = const ConsentStrings(),
     this.buttonStyle,
     this.onDone,
+    this.onError,
     super.key,
   });
 
@@ -34,18 +36,29 @@ class ConsentPrompt extends StatefulWidget {
   /// Called after the user accepted, rejected or confirmed choices.
   final VoidCallback? onDone;
 
+  /// Called when storing a choice failed.
+  final void Function(Object error, StackTrace stackTrace)? onError;
+
   @override
   State<ConsentPrompt> createState() => _ConsentPromptState();
 }
 
 class _ConsentPromptState extends State<ConsentPrompt> {
   bool _busy = false;
+  bool _failed = false;
 
   Future<void> _decide(Future<void> Function() action) async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _failed = false;
+    });
     try {
       await action();
+      if (!mounted) return;
       widget.onDone?.call();
+    } on Object catch (e, st) {
+      widget.onError?.call(e, st);
+      if (mounted) setState(() => _failed = true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -70,7 +83,7 @@ class _ConsentPromptState extends State<ConsentPrompt> {
     final theme = Theme.of(context);
     final strings = widget.strings;
     final manager = widget.manager;
-    final policyChanged = manager.state.status == ConsentStatus.policyChanged;
+    final policyChanged = manager.state.policyChangedNotice;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -79,6 +92,7 @@ class _ConsentPromptState extends State<ConsentPrompt> {
         children: [
           Semantics(
             header: true,
+            namesRoute: true,
             child: Text(strings.promptTitle, style: theme.textTheme.titleLarge),
           ),
           const SizedBox(height: 12),
@@ -107,6 +121,16 @@ class _ConsentPromptState extends State<ConsentPrompt> {
               ),
             ),
           const SizedBox(height: 16),
+          if (_failed) ...[
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                strings.saveFailed,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           ConsentChoiceButtons(
             acceptLabel: strings.acceptAll,
             rejectLabel: strings.rejectAll,
@@ -129,9 +153,11 @@ class _ConsentPromptState extends State<ConsentPrompt> {
 /// Shows the [ConsentPrompt] in a dialog and returns the state after the
 /// user decided.
 ///
-/// The dialog cannot be dismissed by tapping outside, because closing it
-/// without a choice would leave consent undecided. Rejecting is one tap,
-/// exactly like accepting.
+/// The dialog cannot be dismissed by tapping outside or with the system back
+/// gesture, because closing it without a choice would leave consent
+/// undecided. Rejecting is one tap, exactly like accepting. Check
+/// `needsConsent` on the returned state anyway: nothing optional is granted
+/// until the user chooses.
 Future<ConsentState> showConsentDialog(
   BuildContext context, {
   required ConsentManager manager,
@@ -141,19 +167,35 @@ Future<ConsentState> showConsentDialog(
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (dialogContext) => Dialog(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: ConsentPrompt(
-          manager: manager,
-          strings: strings,
-          buttonStyle: buttonStyle,
-          onDone: () => Navigator.of(dialogContext).pop(),
+    builder: (dialogContext) => PopScope(
+      canPop: false,
+      child: Dialog(
+        child: Semantics(
+          scopesRoute: true,
+          explicitChildNodes: true,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: ConsentPrompt(
+              manager: manager,
+              strings: strings,
+              buttonStyle: buttonStyle,
+              onDone: () => _popIfCurrent(dialogContext),
+            ),
+          ),
         ),
       ),
     ),
   );
   return manager.state;
+}
+
+/// Pops the route of [context] only if it is still the top route, so a late
+/// callback never pops the screen underneath.
+void _popIfCurrent(BuildContext context) {
+  if (!context.mounted) return;
+  if (ModalRoute.of(context)?.isCurrent ?? false) {
+    Navigator.of(context).pop();
+  }
 }
 
 /// Shows the [ConsentPrompt] in a modal bottom sheet and returns the state
@@ -170,11 +212,21 @@ Future<ConsentState> showConsentBottomSheet(
     enableDrag: false,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (sheetContext) => ConsentPrompt(
-      manager: manager,
-      strings: strings,
-      buttonStyle: buttonStyle,
-      onDone: () => Navigator.of(sheetContext).pop(),
+    builder: (sheetContext) => PopScope(
+      canPop: false,
+      child: SafeArea(
+        top: false,
+        child: Semantics(
+          scopesRoute: true,
+          explicitChildNodes: true,
+          child: ConsentPrompt(
+            manager: manager,
+            strings: strings,
+            buttonStyle: buttonStyle,
+            onDone: () => _popIfCurrent(sheetContext),
+          ),
+        ),
+      ),
     ),
   );
   return manager.state;

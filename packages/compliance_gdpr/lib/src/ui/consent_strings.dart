@@ -23,6 +23,7 @@ final class ConsentStrings {
     this.confirmChoices = 'Confirm choices',
     this.policyChangedNotice =
         'Our privacy policy has changed. Please review your choices.',
+    this.saveFailed = 'Your choice could not be saved. Please try again.',
   });
 
   /// Title of the consent prompt.
@@ -62,6 +63,9 @@ final class ConsentStrings {
   /// Notice shown when the policy version changed.
   final String policyChangedNotice;
 
+  /// Shown when storing a choice failed.
+  final String saveFailed;
+
   /// Returns a copy with the given values replaced.
   ConsentStrings copyWith({
     String? promptTitle,
@@ -76,6 +80,7 @@ final class ConsentStrings {
     String? optionalSectionTitle,
     String? confirmChoices,
     String? policyChangedNotice,
+    String? saveFailed,
   }) => ConsentStrings(
     promptTitle: promptTitle ?? this.promptTitle,
     promptBody: promptBody ?? this.promptBody,
@@ -89,5 +94,6 @@ final class ConsentStrings {
     optionalSectionTitle: optionalSectionTitle ?? this.optionalSectionTitle,
     confirmChoices: confirmChoices ?? this.confirmChoices,
     policyChangedNotice: policyChangedNotice ?? this.policyChangedNotice,
+    saveFailed: saveFailed ?? this.saveFailed,
   );
 }
