@@ -12,7 +12,7 @@ tool/coverage_summary.sh   prints line coverage from an lcov file
 packages/
   compliance_core/         pure Dart, no deps: AuditEvent, AuditTrail, exceptions
   compliance_logger/       pure Dart, deps: compliance_core, crypto
-  compliance_gdpr/         Flutter, skeleton (Phase 2)
+  compliance_gdpr/         Flutter, deps: compliance_core, compliance_logger. example/ is a workspace member
   compliance_integrity/    Flutter plugin, skeleton (Phase 3)
   compliance_kit/          umbrella, skeleton (Phase 4)
 ```
@@ -26,6 +26,7 @@ flutter pub get                                   # workspace contains Flutter p
 dart run melos run analyze --no-select
 dart format --output=none --set-exit-if-changed .
 dart run melos run test --no-select
+cd packages/compliance_gdpr && flutter test --coverage    # Flutter packages use flutter test
 dart run melos run coverage --no-select           # fails under 90% line coverage (pure Dart packages)
 dart run melos run publish-dry-run --no-select    # never publish for real
 sh tool/coverage_summary.sh packages/<pkg>/coverage/lcov.info
@@ -49,11 +50,14 @@ dart compile exe packages/compliance_logger/benchmark/redaction_benchmark.dart -
 - Logger hash mode is HMAC-SHA-256 with an app-supplied key (random per-process key if none), not plain SHA-256, because low-entropy values like phone numbers are brute-forceable.
 - Built-in rule defaults: all on with full masking, except `ip_address` (off). Partial/hash are opt-in.
 - Redaction fails closed: a throwing rule turns the whole string into `[REDACTED:redaction_error]`.
+- `test` is constrained to ^1.31.1 because the workspace resolves one version set and flutter_test pins test_api 0.7.12.
+- GDPR: consent records are append-only (proof of consent); consent from an older policy version does not count; required purposes cannot be withdrawn; deletion runs server first and keeps local data if the server step fails (`eraseLocalWhenServerFails` to override); only InMemoryConsentStore ships (no storage dependency).
+- GDPR UI: accept/reject are the same widget, style and width; prompt is not dismissible without a choice; settings toggles apply immediately.
 - Performance: AOT Dart runs regexes in an interpreter. Alternations, capture groups and `{n,m}` quantifiers on long input are slow; every rule has a cheap literal/char-class prefilter, and generic key detection is a code-unit scan. Re-run the benchmark after changing rules.
 
 ## Status
 
 - Phase 1 (monorepo, compliance_core, compliance_logger): done. core 100% / logger 99.7% line coverage. Both pass `dart pub publish --dry-run` with 0 warnings.
-- Phase 2 (compliance_gdpr): not started.
+- Phase 2 (compliance_gdpr): done on branch feat/phase-2-gdpr (stacked on phase 1). Logger review fixes (redaction bypasses) also landed on this branch as fix(logger).
 - Phase 3 (compliance_integrity): not started.
 - Phase 4 (umbrella, docs, release prep): not started.
