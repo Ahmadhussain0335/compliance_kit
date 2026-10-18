@@ -1,0 +1,22 @@
+name: compliance_kit_example
+description: Example app for compliance_kit - all modules with one audit trail.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+resolution: workspace
+
+dependencies:
+  compliance_kit: ^0.1.0
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

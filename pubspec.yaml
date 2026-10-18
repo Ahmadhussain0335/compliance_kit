@@ -13,6 +13,7 @@ workspace:
   - packages/compliance_integrity
   - packages/compliance_integrity/example
   - packages/compliance_kit
+  - packages/compliance_kit/example
   - server
 
 dev_dependencies:
