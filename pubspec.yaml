@@ -83,8 +83,24 @@ melos:
 
     publish-dry-run:
       description: Validate every publishable package without publishing.
+      steps:
+        - publish-dry-run:dart
+        - publish-dry-run:flutter
+
+    publish-dry-run:dart:
+      description: Validate publishable pure Dart packages without publishing.
+      exec:
+        command: dart pub publish --dry-run
+        concurrency: 1
+      packageFilters:
+        noPrivate: true
+        flutter: false
+
+    publish-dry-run:flutter:
+      description: Validate publishable Flutter packages without publishing.
       exec:
         command: flutter pub publish --dry-run
         concurrency: 1
       packageFilters:
         noPrivate: true
+        flutter: true
