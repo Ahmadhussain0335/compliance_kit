@@ -9,6 +9,12 @@ import 'package:test/test.dart';
 String redact(String input, {List<RedactionRule>? rules}) =>
     Redactor(rules: rules).redact(input).text;
 
+// Fake credentials are assembled at runtime so that secret scanners (pub,
+// GitHub push protection) do not see a credential-shaped literal.
+String _fake(List<String> parts) => parts.join();
+
+final _awsKeyId = _fake(['AK', 'IA', 'IOSFODNN7EXAMPLE']);
+
 String _fakeJwt() {
   String seg(Map<String, Object?> m) =>
       base64Url.encode(utf8.encode(jsonEncode(m))).replaceAll('=', '');
@@ -141,13 +147,13 @@ void main() {
   group('api keys', () {
     test('masks known formats', () {
       final cases = {
-        'AKIAIOSFODNN7EXAMPLE': 'aws',
-        'AIzaSyA-fake_key_0123456789abcdefghijkl': 'google',
-        'ghp_${'a1B2' * 9}': 'github',
-        'github_pat_${'Ab1_' * 6}': 'github fine-grained',
-        'sk_live_${'4eC39HqLyjWDarjtT1zdp7dc'}': 'stripe',
-        'xoxb-0000000000-fake-token': 'slack',
-        'sk-proj-${'abcDEF123_' * 3}': 'sk- prefixed',
+        _awsKeyId: 'aws',
+        _fake(['AI', 'za', 'SyA-fake_key_0123456789abcdefghijkl']): 'google',
+        _fake(['gh', 'p_', 'a1B2' * 9]): 'github',
+        _fake(['github', '_pat_', 'Ab1_' * 6]): 'github fine-grained',
+        _fake(['sk', '_live_', 'FAKEfake0000FAKEfake']): 'stripe',
+        _fake(['xo', 'xb-', '0000000000-fake-token']): 'slack',
+        _fake(['sk', '-proj-', 'abcDEF123_' * 3]): 'sk- prefixed',
       };
       cases.forEach((key, label) {
         expect(redact('key=$key'), isNot(contains(key)), reason: label);
@@ -160,8 +166,12 @@ void main() {
     });
 
     test('masks PEM private keys', () {
-      const pem =
-          '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANfake\n-----END PRIVATE KEY-----';
+      final pem = _fake([
+        '-----BEGIN PRIVATE',
+        ' KEY-----\nFAKEFAKEFAKE\n',
+        '-----END PRIVATE',
+        ' KEY-----',
+      ]);
       expect(redact('key: $pem'), 'key: [REDACTED:api_key]');
       expect(
         redact(pem, rules: [const ApiKeyRule(mode: MaskMode.partial)]),
@@ -170,16 +180,13 @@ void main() {
     });
 
     test('masks generic high-entropy keys', () {
-      const secret = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
+      final secret = _fake(['wJalrXUtnFEMI/K7MDENG', '/bPxRfiCYEXAMPLEKEY']);
       expect(redact('aws secret $secret'), 'aws secret [REDACTED:api_key]');
     });
 
     test('partial keeps 4 characters', () {
       expect(
-        redact(
-          'AKIAIOSFODNN7EXAMPLE',
-          rules: [const ApiKeyRule(mode: MaskMode.partial)],
-        ),
+        redact(_awsKeyId, rules: [const ApiKeyRule(mode: MaskMode.partial)]),
         'AKIA****',
       );
     });
