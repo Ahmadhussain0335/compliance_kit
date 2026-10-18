@@ -10,8 +10,8 @@ environment:
 resolution: workspace
 
 dependencies:
-  compliance_core: ^0.1.0
-  compliance_integrity: ^0.1.0
+  compliance_core: ^0.1.0-beta.1
+  compliance_integrity: ^0.1.0-beta.1
   flutter:
     sdk: flutter
 

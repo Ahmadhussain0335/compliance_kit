@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'compliance_integrity'
-  s.version          = '0.1.0'
+  s.version          = '0.1.0-beta.1'
   s.summary          = 'App Attest integrity checks for compliance_integrity.'
   s.description      = <<-DESC
 App Attest (DeviceCheck) integration for the compliance_integrity Flutter plugin.
