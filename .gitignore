@@ -36,3 +36,6 @@ key.properties
 service-account*.json
 .env
 .env.*
+
+# Workspace members resolve through the root lockfile
+packages/**/pubspec.lock

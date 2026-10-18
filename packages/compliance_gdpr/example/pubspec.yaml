@@ -1,0 +1,24 @@
+name: compliance_gdpr_example
+description: Example app for compliance_gdpr - consent, data export and account deletion.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+resolution: workspace
+
+dependencies:
+  compliance_core: ^0.1.0
+  compliance_gdpr: ^0.1.0
+  compliance_logger: ^0.1.0
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
