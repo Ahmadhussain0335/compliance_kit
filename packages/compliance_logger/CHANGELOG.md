@@ -1,6 +1,6 @@
-## 0.1.0
+## 0.1.0-beta.1 - 2026-10-18
 
-Initial release.
+First beta release. APIs may change before 1.0.0.
 
 - `ComplianceLogger` with six levels (`trace` to `fatal`), lazy messages, child loggers and isolated sinks: a failing sink, async sink or error handler never breaks logging or other sinks.
 - Redaction of the message, the error's text, the stack trace text and structured fields before any sink runs. The original error object is never passed to sinks.
