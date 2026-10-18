@@ -39,3 +39,6 @@ service-account*.json
 
 # Workspace members resolve through the root lockfile
 packages/**/pubspec.lock
+
+# Local planning notes, not part of the repository
+PROMPT.md
