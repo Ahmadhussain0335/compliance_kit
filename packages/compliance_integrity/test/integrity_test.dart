@@ -1,3 +1,6 @@
+// Fakes rethrow whatever error a test configures.
+// ignore_for_file: only_throw_errors
+
 import 'package:compliance_core/compliance_core.dart';
 import 'package:compliance_integrity/compliance_integrity.dart';
 import 'package:compliance_integrity/src/messages.g.dart';
