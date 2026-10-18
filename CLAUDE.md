@@ -13,7 +13,8 @@ packages/
   compliance_core/         pure Dart, no deps: AuditEvent, AuditTrail, exceptions
   compliance_logger/       pure Dart, deps: compliance_core, crypto
   compliance_gdpr/         Flutter, deps: compliance_core, compliance_logger. example/ is a workspace member
-  compliance_integrity/    Flutter plugin, skeleton (Phase 3)
+  compliance_integrity/    Flutter plugin (Pigeon). Android: Play Integrity standard requests (Kotlin). iOS: App Attest (Swift, SwiftPM + CocoaPods). example/ is a workspace member
+server/                    reference verification server (Dart + shelf), NOT published, workspace member
   compliance_kit/          umbrella, skeleton (Phase 4)
 ```
 
@@ -27,6 +28,9 @@ dart run melos run analyze --no-select
 dart format --output=none --set-exit-if-changed .
 dart run melos run test --no-select
 cd packages/compliance_gdpr && flutter test --coverage    # Flutter packages use flutter test
+cd packages/compliance_integrity/example && flutter build apk --debug && (cd android && ./gradlew :compliance_integrity:testDebugUnitTest)
+cd packages/compliance_integrity/example && flutter build ios --simulator --debug
+cd server && dart test
 dart run melos run coverage --no-select           # fails under 90% line coverage (pure Dart packages)
 dart run melos run publish-dry-run --no-select    # never publish for real
 sh tool/coverage_summary.sh packages/<pkg>/coverage/lcov.info
@@ -53,11 +57,16 @@ dart compile exe packages/compliance_logger/benchmark/redaction_benchmark.dart -
 - `test` is constrained to ^1.31.1 because the workspace resolves one version set and flutter_test pins test_api 0.7.12.
 - GDPR: consent records are append-only (proof of consent); consent from an older policy version does not count; required purposes cannot be withdrawn; deletion runs server first and keeps local data if the server step fails (`eraseLocalWhenServerFails` to override); only InMemoryConsentStore ships (no storage dependency).
 - GDPR UI: accept/reject are the same widget, style and width; prompt is not dismissible without a choice; settings toggles apply immediately.
+- Integrity: one Dart API with a sealed IntegrityResult; no method throws. Error codes are shared between Dart (IntegrityErrorCodes), Kotlin (IntegrityErrors) and Swift (IntegrityErrorCode) - keep them in sync. Regenerate the channel with `dart run pigeon --input pigeons/messages.dart` (in packages/compliance_integrity).
+- iOS clientDataHash = SHA-256(UTF-8(requestHash)); the server must compute the same. App Attest key id + attested flag live in the Keychain (AfterFirstUnlockThisDeviceOnly). invalidKey triggers one automatic re-attestation.
+- Android: provider cached per Cloud project number; re-prepared once on INTEGRITY_TOKEN_PROVIDER_INVALID (-19). 60 s timeout per call.
+- Server: hand-written DER/X.509 parsing (no asn1lib) + pointycastle ECDSA + cbor. Apple root CA pinned in lib/src/app_attest/apple_root_ca.dart. Apple's sample attestation is a test fixture (valid only at 2026-04-21, so tests inject `now`).
+- Approved deps for phase 3: pigeon (dev), meta (Pigeon output), play:integrity 1.6.0, kotlinx-coroutines-android 1.11.0 (Pigeon output), server: googleapis, googleapis_auth, shelf, shelf_router, cbor, pointycastle (asn1lib approved but not used).
 - Performance: AOT Dart runs regexes in an interpreter. Alternations, capture groups and `{n,m}` quantifiers on long input are slow; every rule has a cheap literal/char-class prefilter, and generic key detection is a code-unit scan. Re-run the benchmark after changing rules.
 
 ## Status
 
 - Phase 1 (monorepo, compliance_core, compliance_logger): done. core 100% / logger 99.7% line coverage. Both pass `dart pub publish --dry-run` with 0 warnings.
 - Phase 2 (compliance_gdpr): done on branch feat/phase-2-gdpr (stacked on phase 1). Logger review fixes (redaction bypasses) also landed on this branch as fix(logger).
-- Phase 3 (compliance_integrity): not started.
+- Phase 3 (compliance_integrity + server): done on branch feat/phase-3-integrity (stacked on phase 2). Native code compiled locally (debug APK, iOS simulator build); Kotlin unit test passes. Real-device testing still to do (checklist in the package README). GDPR review fixes also landed on this branch.
 - Phase 4 (umbrella, docs, release prep): not started.
