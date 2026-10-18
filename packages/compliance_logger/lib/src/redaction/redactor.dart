@@ -113,6 +113,13 @@ final class Redactor {
   /// Rule id used in counts when redaction failed.
   static const String failureRuleId = 'redaction_error';
 
+  /// Count key used when [redactValue] cut a collection at
+  /// [maxCollectionLength].
+  static const String truncatedRuleId = 'truncated';
+
+  /// Count key used when [redactValue] cut nesting at [maxDepth].
+  static const String maxDepthRuleId = 'max_depth';
+
   static final RegExp _ruleId = RegExp(r'^[a-z][a-z0-9_]*$');
 
   /// All configured rules, enabled or not, in the order they run.
@@ -181,7 +188,10 @@ final class Redactor {
       case String():
         return _redactString(value, counts);
     }
-    if (depth >= maxDepth) return maxDepthMask;
+    if (depth >= maxDepth) {
+      counts[maxDepthRuleId] = (counts[maxDepthRuleId] ?? 0) + 1;
+      return maxDepthMask;
+    }
     if (value is Map || value is Iterable) {
       if (!visiting.add(value)) return cycleMask;
       try {
@@ -190,6 +200,7 @@ final class Redactor {
           var kept = 0;
           for (final entry in value.entries) {
             if (kept++ >= maxCollectionLength) {
+              counts[truncatedRuleId] = (counts[truncatedRuleId] ?? 0) + 1;
               out[truncatedMask] = truncatedMask;
               break;
             }
@@ -222,6 +233,7 @@ final class Redactor {
         final out = <Object?>[];
         for (final item in value as Iterable<Object?>) {
           if (out.length >= maxCollectionLength) {
+            counts[truncatedRuleId] = (counts[truncatedRuleId] ?? 0) + 1;
             out.add(truncatedMask);
             break;
           }

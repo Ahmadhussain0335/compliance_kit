@@ -270,6 +270,18 @@ void main() {
       expect(out.values.toSet(), {'a', 'b'});
     });
 
+    test('truncation and depth limits are counted', () {
+      final counts = <String, int>{};
+      Redactor(maxCollectionLength: 2, maxDepth: 2).redactValue({
+        'list': [1, 2, 3],
+        'deep': {
+          'a': {'b': 1},
+        },
+      }, counts: counts);
+      expect(counts[Redactor.truncatedRuleId], 1);
+      expect(counts[Redactor.maxDepthRuleId], 1);
+    });
+
     test('very long iterables are truncated', () {
       final out =
           Redactor(
