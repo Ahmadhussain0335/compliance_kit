@@ -1,0 +1,17 @@
+name: compliance_gdpr
+description: GDPR flows for Flutter apps - granular consent, data export and account deletion. Planned.
+version: 0.0.1
+publish_to: none
+repository: https://github.com/Ahmadhussain0335/compliance_kit/tree/main/packages/compliance_gdpr
+issue_tracker: https://github.com/Ahmadhussain0335/compliance_kit/issues
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+

@@ -1,0 +1,17 @@
+name: compliance_kit
+description: Umbrella package for Compliance Kit - re-exports compliance_core, compliance_logger, compliance_gdpr and compliance_integrity. Planned.
+version: 0.0.1
+publish_to: none
+repository: https://github.com/Ahmadhussain0335/compliance_kit/tree/main/packages/compliance_kit
+issue_tracker: https://github.com/Ahmadhussain0335/compliance_kit/issues
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+

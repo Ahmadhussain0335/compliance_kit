@@ -1,0 +1,90 @@
+name: compliance_kit_workspace
+description: Development workspace for the Compliance Kit package family.
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+workspace:
+  - packages/compliance_core
+  - packages/compliance_logger
+  - packages/compliance_gdpr
+  - packages/compliance_integrity
+  - packages/compliance_kit
+
+dev_dependencies:
+  coverage: ^1.16.0
+  lints: ^6.1.0
+  melos: ^8.9.0
+
+melos:
+  repository: https://github.com/Ahmadhussain0335/compliance_kit
+  scripts:
+    analyze:
+      description: Analyze every package with infos treated as failures.
+      exec:
+        command: dart analyze --fatal-infos .
+        concurrency: 1
+        failFast: true
+
+    format:
+      description: Format all Dart files.
+      run: dart format .
+
+    format:check:
+      description: Fail if any Dart file is not formatted.
+      run: dart format --output=none --set-exit-if-changed .
+
+    test:
+      description: Run all tests (pure Dart and Flutter packages).
+      steps:
+        - test:dart
+        - test:flutter
+
+    test:dart:
+      description: Run tests in pure Dart packages.
+      exec:
+        command: dart test
+        concurrency: 1
+        failFast: true
+      packageFilters:
+        flutter: false
+        dirExists: test
+
+    test:flutter:
+      description: Run tests in Flutter packages.
+      exec:
+        command: flutter test
+        concurrency: 1
+        failFast: true
+      packageFilters:
+        flutter: true
+        dirExists: test
+
+    coverage:
+      description: Run tests with coverage and enforce the 90 percent line threshold for pure Dart packages.
+      exec:
+        command: dart run coverage:test_with_coverage --fail-under=90
+        concurrency: 1
+        failFast: true
+      packageFilters:
+        flutter: false
+        dirExists: test
+
+    coverage:flutter:
+      description: Run Flutter package tests with coverage (lcov at coverage/lcov.info).
+      exec:
+        command: flutter test --coverage
+        concurrency: 1
+        failFast: true
+      packageFilters:
+        flutter: true
+        dirExists: test
+
+    publish-dry-run:
+      description: Validate every publishable package without publishing.
+      exec:
+        command: flutter pub publish --dry-run
+        concurrency: 1
+      packageFilters:
+        noPrivate: true

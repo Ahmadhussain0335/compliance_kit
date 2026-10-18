@@ -1,0 +1,38 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec_overrides.yaml
+coverage/
+*.lcov
+doc/api/
+
+# Flutter / native
+.flutter-plugins
+.flutter-plugins-dependencies
+**/android/.gradle/
+**/android/local.properties
+**/android/**/gradle-wrapper.jar
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Runner.xcworkspace/xcuserdata/
+**/xcuserdata/
+*.iml
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Secrets - never commit
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+key.properties
+service-account*.json
+.env
+.env.*
