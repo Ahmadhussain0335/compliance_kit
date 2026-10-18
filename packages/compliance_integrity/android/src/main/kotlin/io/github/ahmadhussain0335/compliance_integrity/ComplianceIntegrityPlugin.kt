@@ -11,6 +11,7 @@ import com.google.android.play.core.integrity.StandardIntegrityManager.StandardI
 import com.google.android.play.core.integrity.StandardIntegrityManager.StandardIntegrityTokenRequest
 import com.google.android.play.core.integrity.model.StandardIntegrityErrorCode
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
@@ -112,6 +113,9 @@ class ComplianceIntegrityPlugin : FlutterPlugin, IntegrityHostApi {
         throw e
     } catch (e: TimeoutCancellationException) {
         throw FlutterError(IntegrityErrors.NETWORK, "Play Integrity did not respond in time.")
+    } catch (e: CancellationException) {
+        // Keep structured cancellation working.
+        throw e
     } catch (e: StandardIntegrityException) {
         throw FlutterError(
             IntegrityErrors.fromStandardErrorCode(e.errorCode),

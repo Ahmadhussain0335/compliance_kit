@@ -49,7 +49,7 @@ switch (await integrity.requestToken(challenge)) {
 
 The request hash (Android `requestHash`, iOS `clientDataHash`) binds a token to one specific request. If the app made it up, an attacker could obtain a valid token once, on a genuine device, and replay it for any later request. A server-issued, single-use challenge with a short lifetime lets the server check that the token was produced for this request, recently, by this app.
 
-- Android: the challenge is passed unchanged as `requestHash` (at most 500 characters). The server compares `requestDetails.requestHash`. Google recommends a digest of the request content, for example `base64url(SHA-256(challenge || action || payload))`.
+- Android: the value is passed unchanged as `requestHash` (at most 500 characters). The server compares `requestDetails.requestHash`. With the reference server, pass the challenge itself. Google recommends binding the token to the request content as well, for example `base64url(SHA-256(challenge || action || payload))`; if you do, your server must compute the same value from the request it receives.
 - iOS: the plugin uses `SHA-256(UTF-8(requestHash))` as `clientDataHash`. The server computes the same value.
 - Never put personal data in the request hash: Play returns it verbatim in the token.
 
@@ -59,7 +59,7 @@ App Attest attests a key once and then signs requests with it:
 
 1. The first successful `requestToken` returns `IntegrityTokenKind.appAttestAttestation` and a `keyId`. Your server verifies the attestation and stores the key's public key, bound to the user account.
 2. Later calls return `IntegrityTokenKind.appAttestAssertion`. The server verifies the signature with the stored key and checks that the counter increased.
-3. If the server rejected or lost the attestation, call `integrity.reset()`; the next request creates and attests a new key.
+3. If the server does not know the key (it rejected or lost the attestation; the reference server answers `409 {"ok": false, "action": "reattest"}`), call `integrity.reset()` and request again; the next request creates and attests a new key. The plugin marks a key as attested as soon as Apple returns the attestation, so this server signal is the only way to learn that the server never stored it.
 4. If Apple rejects a stored key (for example after switching between the development and production environments), the plugin creates and attests a new key automatically. Your server must therefore accept an attestation at any time.
 
 ## API overview
