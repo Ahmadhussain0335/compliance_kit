@@ -1,0 +1,23 @@
+name: compliance_integrity_server
+description: >-
+  Reference server for verifying compliance_integrity tokens (Play Integrity
+  and App Attest). A reference example, not production-ready code.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.9.0
+
+resolution: workspace
+
+dependencies:
+  cbor: ^6.5.1
+  crypto: ^3.0.7
+  googleapis: ^17.0.0
+  googleapis_auth: ^2.3.4
+  pointycastle: ^4.0.0
+  shelf: ^1.4.3
+  shelf_router: ^1.1.5
+
+dev_dependencies:
+  test: ^1.31.1

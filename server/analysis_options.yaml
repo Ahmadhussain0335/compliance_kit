@@ -1,0 +1,6 @@
+include: ../analysis_options.yaml
+
+linter:
+  rules:
+    # Reference server: documented through its README, not as public API.
+    public_member_api_docs: false
