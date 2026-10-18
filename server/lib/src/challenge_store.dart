@@ -9,6 +9,7 @@ final class ChallengeStore {
   /// Creates a store.
   ChallengeStore({
     this.lifetime = const Duration(minutes: 5),
+    this.maxOutstanding = 10000,
     DateTime Function()? clock,
     Random? random,
   }) : _clock = clock ?? DateTime.now,
@@ -17,13 +18,19 @@ final class ChallengeStore {
   /// How long a challenge stays valid.
   final Duration lifetime;
 
+  /// Maximum number of unconsumed challenges. [issue] returns `null` when
+  /// the store is full; the server answers 503.
+  final int maxOutstanding;
+
   final DateTime Function() _clock;
   final Random _random;
   final Map<String, DateTime> _issued = {};
 
-  /// Returns a new base64url challenge with 256 bits of randomness.
-  String issue() {
+  /// Returns a new base64url challenge with 256 bits of randomness, or
+  /// `null` if [maxOutstanding] challenges are pending.
+  String? issue() {
     _purge();
+    if (_issued.length >= maxOutstanding) return null;
     final bytes = List<int>.generate(32, (_) => _random.nextInt(256));
     final challenge = base64Url.encode(bytes).replaceAll('=', '');
     _issued[challenge] = _clock().add(lifetime);
@@ -40,8 +47,12 @@ final class ChallengeStore {
   /// Number of outstanding challenges.
   int get length => _issued.length;
 
+  /// Lifetimes are fixed, so insertion order is expiry order and only the
+  /// oldest entries need checking.
   void _purge() {
     final now = _clock();
-    _issued.removeWhere((_, expiry) => !now.isBefore(expiry));
+    while (_issued.isNotEmpty && !now.isBefore(_issued.values.first)) {
+      _issued.remove(_issued.keys.first);
+    }
   }
 }

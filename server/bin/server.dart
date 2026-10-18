@@ -7,6 +7,7 @@
 //   GOOGLE_APPLICATION_CREDENTIALS path to the service account key (never commit it)
 //   IOS_TEAM_ID, IOS_BUNDLE_ID    enable App Attest verification
 //   IOS_APP_ATTEST_ENV            development | production (default production)
+//   EXPOSE_FAILURE_REASONS        true to return failure reasons (development only)
 //
 // Run behind TLS (a reverse proxy or load balancer); never expose it over
 // plain HTTP.
@@ -46,6 +47,10 @@ Future<void> main() async {
                 ? AppAttestEnvironment.development
                 : AppAttestEnvironment.production,
           ),
+    exposeFailureReasons: env['EXPOSE_FAILURE_REASONS'] == 'true',
+    // Reasons only, never tokens or key ids.
+    onFailure: (route, failures) =>
+        stderr.writeln('verification failed: $route $failures'),
   );
 
   final port = int.tryParse(env['PORT'] ?? '') ?? 8080;

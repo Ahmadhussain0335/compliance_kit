@@ -93,6 +93,20 @@ void main() {
       expect(wrongEnv.result.failures, ['environment']);
     });
 
+    test('rejects oversized objects before decoding', () {
+      expect(
+        _verifier()
+            .verifyAttestation(
+              attestation: Uint8List(AppAttestVerifier.maxAttestationBytes + 1),
+              keyId: _sampleKeyId,
+              clientDataHash: const [],
+            )
+            .result
+            .failures,
+        ['too_large'],
+      );
+    });
+
     test('fails on a tampered or malformed object', () {
       final tampered = _sampleAttestation();
       tampered[tampered.length - 40] ^= 0xFF;
@@ -233,6 +247,19 @@ void main() {
         ['app_id'],
       );
       expect(key.counter, 5);
+    });
+
+    test('oversized assertion', () {
+      expect(
+        verifier
+            .verifyAssertion(
+              assertion: Uint8List(AppAttestVerifier.maxAssertionBytes + 1),
+              key: key,
+              clientDataHash: const [],
+            )
+            .failures,
+        ['too_large'],
+      );
     });
 
     test('malformed assertions', () {

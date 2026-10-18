@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:compliance_integrity_server/compliance_integrity_server.dart';
+import 'package:googleapis/playintegrity/v1.dart';
 import 'package:test/test.dart';
 
 final _now = DateTime.utc(2026, 10, 18, 12);
@@ -94,5 +97,20 @@ void main() {
       now: _now,
     );
     expect(result.failures, ['device_integrity']);
+  });
+
+  test('works on googleapis payload objects (nested toJson)', () {
+    final typed = TokenPayloadExternal.fromJson(payload());
+    final plain = GooglePlayIntegrityDecoder.toPlainJson(typed);
+    expect(check(plain).ok, isTrue);
+  });
+
+  test('non-list verdict fields fail instead of throwing', () {
+    final p = (jsonDecode(jsonEncode(payload())) as Map)
+        .cast<String, Object?>();
+    (p['deviceIntegrity']! as Map)['deviceRecognitionVerdict'] =
+        'MEETS_DEVICE_INTEGRITY';
+    (p['appIntegrity']! as Map)['certificateSha256Digest'] = 'x';
+    expect(check(p).failures, ['certificate', 'device_integrity']);
   });
 }

@@ -74,7 +74,7 @@ final class PlayIntegrityPolicy {
     } else {
       if (app['packageName'] != packageName) failures.add('app_package_name');
       if (certificateSha256Digests.isNotEmpty) {
-        final digests = (app['certificateSha256Digest'] as List?) ?? const [];
+        final digests = _list(app['certificateSha256Digest']);
         if (!digests.any(certificateSha256Digests.contains)) {
           failures.add('certificate');
         }
@@ -82,7 +82,7 @@ final class PlayIntegrityPolicy {
     }
 
     // 3. Device integrity.
-    final labels = (device['deviceRecognitionVerdict'] as List?) ?? const [];
+    final labels = _list(device['deviceRecognitionVerdict']);
     if (!labels.contains(requiredDeviceVerdict)) {
       failures.add('device_integrity');
     }
@@ -96,6 +96,9 @@ final class PlayIntegrityPolicy {
         ? const VerificationResult.pass()
         : VerificationResult.fail(failures);
   }
+
+  static List<Object?> _list(Object? value) =>
+      value is List ? value.cast<Object?>() : const [];
 
   static Map<String, Object?> _map(Object? value) =>
       value is Map ? value.cast<String, Object?>() : const {};

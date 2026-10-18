@@ -27,14 +27,14 @@ final class Certificate {
   ///
   /// Throws [FormatException] if it is malformed or not an EC certificate.
   factory Certificate.fromDer(Uint8List der) {
-    final cert = Der.parse(der).expect(Der.sequence).children;
+    final cert = Der.parseAll(der).expect(Der.sequence).children;
     if (cert.length != 3) throw const FormatException('X.509: bad structure');
     final tbs = cert[0].expect(Der.sequence);
     final fields = tbs.children;
     var i = 0;
     if (fields[i].tag == 0xA0) i++; // explicit version
     i++; // serialNumber
-    i++; // signature algorithm (repeated in the outer structure)
+    final innerAlgorithm = fields[i++].expect(Der.sequence).children.first.oid;
     final issuer = fields[i++].expect(Der.sequence);
     final validity = fields[i++].expect(Der.sequence).children;
     final subject = fields[i++].expect(Der.sequence);
@@ -49,12 +49,20 @@ final class Certificate {
       final list = fields[i].children.single.expect(Der.sequence).children;
       for (final ext in list) {
         final parts = ext.expect(Der.sequence).children;
-        extensions[parts.first.oid] = parts.last.expect(Der.octetString).value;
+        final oid = parts.first.oid;
+        if (extensions.containsKey(oid)) {
+          throw const FormatException('X.509: duplicate extension');
+        }
+        extensions[oid] = parts.last.expect(Der.octetString).value;
       }
+    }
+    final outerAlgorithm = cert[1].expect(Der.sequence).children.first.oid;
+    if (outerAlgorithm != innerAlgorithm) {
+      throw const FormatException('X.509: signature algorithm mismatch');
     }
     return Certificate._(
       tbs: tbs.encoded,
-      signatureAlgorithm: cert[1].expect(Der.sequence).children.first.oid,
+      signatureAlgorithm: outerAlgorithm,
       signature: cert[2].bitStringBytes,
       issuer: issuer.encoded,
       subject: subject.encoded,
@@ -117,6 +125,26 @@ final class Certificate {
         signature: signature,
       );
 
+  /// Whether basicConstraints marks this certificate as a CA.
+  bool get isCa {
+    final value = extensions['2.5.29.19'];
+    if (value == null) return false;
+    final fields = Der.parseAll(value).expect(Der.sequence).children;
+    return fields.isNotEmpty &&
+        fields.first.tag == 0x01 &&
+        fields.first.value.length == 1 &&
+        fields.first.value[0] == 0xFF;
+  }
+
+  /// Whether keyUsage allows certificate signing (or is absent).
+  bool get mayIssueCertificates {
+    final value = extensions['2.5.29.15'];
+    if (value == null) return true;
+    final bits = Der.parseAll(value).value;
+    // bits[0] is the unused-bit count; keyCertSign is bit 5 (0x04).
+    return bits.length >= 2 && bits[1] & 0x04 != 0;
+  }
+
   /// Whether [time] is inside the validity period.
   bool isValidAt(DateTime time) =>
       !time.isBefore(notBefore) && !time.isAfter(notAfter);
@@ -124,14 +152,22 @@ final class Certificate {
 
 /// Verifies that [chain] (leaf first) leads to [root] and that every
 /// certificate is valid at [now]. The root is pinned: it is never taken
-/// from the chain.
+/// from the chain. Issuers must be CAs allowed to sign certificates, and
+/// the leaf must not be a CA.
 bool verifyChain(List<Certificate> chain, Certificate root, DateTime now) {
-  if (chain.isEmpty) return false;
-  for (var i = 0; i < chain.length; i++) {
-    final issuer = i + 1 < chain.length ? chain[i + 1] : root;
-    if (!chain[i].isValidAt(now) || !chain[i].isIssuedBy(issuer)) return false;
+  try {
+    if (chain.isEmpty || chain.first.isCa) return false;
+    for (var i = 0; i < chain.length; i++) {
+      final issuer = i + 1 < chain.length ? chain[i + 1] : root;
+      if (!issuer.isCa || !issuer.mayIssueCertificates) return false;
+      if (!chain[i].isValidAt(now) || !chain[i].isIssuedBy(issuer)) {
+        return false;
+      }
+    }
+    return root.isValidAt(now);
+  } on FormatException {
+    return false;
   }
-  return root.isValidAt(now);
 }
 
 bool _equal(List<int> a, List<int> b) {

@@ -43,9 +43,11 @@ The tests include Apple's published sample attestation from the "Attestation Obj
 | `POST /v1/challenge` | none | `{"challenge": "<base64url, 256 bits>"}`, single use, 5 minutes |
 | `POST /v1/android/verify` | `{"token", "challenge"}` | `200 {"ok": true}` or `403 {"ok": false, "failures": [...]}` |
 | `POST /v1/ios/attest` | `{"attestation", "keyId", "challenge"}` | same; stores the key on success |
-| `POST /v1/ios/assert` | `{"assertion", "keyId", "challenge"}` | same; advances the counter |
+| `POST /v1/ios/assert` | `{"assertion", "keyId", "challenge"}` | same; advances the counter. Unknown key: `409 {"ok": false, "action": "reattest"}` (the app calls `Integrity.reset()`) |
 
-Failure codes are machine-readable (`request_hash`, `device_integrity`, `nonce`, `certificate_chain`, `counter`, ...). Tokens are never logged.
+Responses do not say which check failed, so attackers cannot use them to tune forgeries. Failure reasons (`request_hash`, `device_integrity`, `nonce`, `certificate_chain`, `counter`, ...) go to the `onFailure` callback; the entry point writes them to stderr. Set `EXPOSE_FAILURE_REASONS=true` during development to include them in responses. Tokens and key ids are never logged.
+
+Built-in limits: request bodies up to 32 KB, attestations up to 16 KB, assertions up to 1 KB, at most 10,000 outstanding challenges (then `503`), and Android tokens must look like a compact JWE before the Google API is called. Certificate chains must have exactly two certificates; issuers must be CAs allowed to sign certificates, the leaf must not be a CA, and EC public keys are checked to be on the curve.
 
 ## Run
 
@@ -66,7 +68,8 @@ The server binds to `127.0.0.1` only. Put it behind a TLS-terminating proxy; nev
 
 - Authenticate callers and bind App Attest keys to user accounts; reject a key already bound to another account.
 - Store challenges and keys in a shared database (with expiry), not in memory.
-- Add request body size limits, rate limiting and monitoring.
+- Add authentication and rate limiting (especially on `/v1/challenge` and `/v1/android/verify`, which spends Play Integrity quota), and monitoring.
+- App Attest key ids and receipts are persistent per-install identifiers: treat them as personal data (retention, lawful basis, deletion on account erasure).
 - Decide your policy for devices that cannot attest (no Google Play services, Macs, simulators): fall back to other risk signals rather than locking users out silently.
 - Implement the Apple extensions and receipt refresh if you need them.
 - Have the code reviewed.

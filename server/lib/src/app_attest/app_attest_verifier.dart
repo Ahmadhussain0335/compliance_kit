@@ -81,6 +81,12 @@ final class AppAttestVerifier {
   final Certificate _root;
 
   static const String _nonceExtensionOid = '1.2.840.113635.100.8.2';
+
+  /// Largest accepted attestation object. Real ones are about 5-6 KB.
+  static const int maxAttestationBytes = 16 * 1024;
+
+  /// Largest accepted assertion object.
+  static const int maxAssertionBytes = 1024;
   static final List<int> _aaguidProduction = [
     ...utf8.encode('appattest'),
     ...List.filled(7, 0),
@@ -107,6 +113,7 @@ final class AppAttestVerifier {
     DateTime? now,
   }) {
     final failures = <String>[];
+    if (attestation.length > maxAttestationBytes) return _fail('too_large');
     try {
       final object = cborDecode(attestation);
       if (object is! CborMap) return _fail('not_a_cbor_map');
@@ -120,7 +127,7 @@ final class AppAttestVerifier {
       }
       final x5c = statement[CborString('x5c')];
       final receipt = _bytes(statement, 'receipt') ?? Uint8List(0);
-      if (x5c is! CborList || x5c.length < 2) return _fail('missing_x5c');
+      if (x5c is! CborList || x5c.length != 2) return _fail('missing_x5c');
       final chain = [
         for (final c in x5c)
           Certificate.fromDer(Uint8List.fromList((c as CborBytes).bytes)),
@@ -188,6 +195,9 @@ final class AppAttestVerifier {
     required AppAttestKey key,
     required List<int> clientDataHash,
   }) {
+    if (assertion.length > maxAssertionBytes) {
+      return const VerificationResult.fail(['too_large']);
+    }
     try {
       final object = cborDecode(assertion);
       if (object is! CborMap) {

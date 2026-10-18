@@ -99,6 +99,15 @@ final class Der {
     return result;
   }
 
+  /// Parses [bytes] as exactly one element, rejecting trailing data.
+  static Der parseAll(Uint8List bytes) {
+    final element = Der.parse(bytes);
+    if (element.end != bytes.length) {
+      throw const FormatException('DER: trailing data');
+    }
+    return element;
+  }
+
   /// Returns this element after checking its tag.
   Der expect(int expectedTag) {
     if (tag != expectedTag) {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:googleapis/playintegrity/v1.dart';
 import 'package:googleapis_auth/auth_io.dart';
 
@@ -38,8 +40,15 @@ final class GooglePlayIntegrityDecoder implements PlayIntegrityDecoder {
     );
     final payload = response.tokenPayloadExternal;
     if (payload == null) throw const FormatException('empty payload');
-    return payload.toJson().cast<String, Object?>();
+    return toPlainJson(payload);
   }
+
+  /// Converts a googleapis payload to plain maps and lists.
+  ///
+  /// googleapis `toJson()` is shallow: nested values stay typed objects.
+  /// A JSON round trip makes every level a `Map` or `List`.
+  static Map<String, Object?> toPlainJson(TokenPayloadExternal payload) =>
+      (jsonDecode(jsonEncode(payload)) as Map).cast<String, Object?>();
 
   /// Closes the HTTP client.
   void close() => _client.close();
