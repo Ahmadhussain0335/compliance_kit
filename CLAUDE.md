@@ -18,6 +18,7 @@ server/                    reference verification server (Dart + shelf), NOT pub
   compliance_kit/          umbrella: re-exports all packages + ComplianceKit.init (shared AuditTrail, consent-gated log forwarding). example/ is a workspace member
 docs/                      guides per package + audit-trail guide (event catalogue)
 RELEASE.md                 publisher setup, publish order, tags, post-release checks
+CHANGELOG.md, SECURITY.md, CONTRIBUTING.md   family release notes, vulnerability reporting (GitHub private reporting), contributor rules
 ```
 
 Packages have no own analysis_options.yaml; the root file applies to all.
@@ -73,5 +74,5 @@ dart compile exe packages/compliance_logger/benchmark/redaction_benchmark.dart -
 - Phase 2 (compliance_gdpr): done on branch feat/phase-2-gdpr (stacked on phase 1). Logger review fixes (redaction bypasses) also landed on this branch as fix(logger).
 - Phase 3 (compliance_integrity + server): done on branch feat/phase-3-integrity (stacked on phase 2). Native code compiled locally (debug APK, iOS simulator build); Kotlin unit test passes. Real-device testing still to do (checklist in the package README). GDPR review fixes also landed on this branch.
 - Phase 4 (umbrella, docs, release prep): done on branch feat/phase-4-umbrella (stacked on phase 3). All 5 packages at 0.1.0 pass publish dry-run with 0 warnings. Nothing published.
-- Branch stack: feat/phase-1-core-logger <- feat/phase-2-gdpr <- feat/phase-3-integrity <- feat/phase-4-umbrella. main has no commits yet; merge phase-4 (contains everything).
+- Remote: https://github.com/Ahmadhussain0335/compliance_kit (public). main = first commit only; feature branches stacked phase-1 <- 2 <- 3 <- 4, merge via PRs. Commits use the personal email (repo-local git config); never the company email.
 - Open before publishing: create the GitHub repo (pubspec URLs point to it), verified publisher, real-device integrity tests, test the declared minimum Flutter 3.35 (only 3.47.7 is tested).

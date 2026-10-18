@@ -3,6 +3,11 @@
 Open-source Dart and Flutter packages that help apps implement privacy and security controls: PII-safe logging, GDPR consent, data export and deletion, and app integrity checks, all recording into one audit trail.
 
 [![CI](https://github.com/Ahmadhussain0335/compliance_kit/actions/workflows/ci.yaml/badge.svg)](https://github.com/Ahmadhussain0335/compliance_kit/actions/workflows/ci.yaml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**Status:** 0.1.0, not yet published to pub.dev. See the [changelog](CHANGELOG.md).
+
+Built for apps that have to meet GDPR, the EU Cyber Resilience Act, EN 18031 / RED delegated act and OWASP MASVS requirements. The packages implement concrete controls (redacted logs, recorded consent, export, deletion, attestation) and record evidence in one audit trail.
 
 ## Which package do I need?
 
@@ -58,6 +63,29 @@ if (await integrity.requestToken(challenge) case IntegritySuccess(:final token, 
 
 See [docs/](docs): getting started, one guide per package, and [how to use the audit trail with auditors](docs/audit-trail.md).
 
+## Repository layout
+
+```
+packages/
+  compliance_core/        audit trail and exceptions (pure Dart)
+  compliance_logger/      PII-redacting logger (pure Dart)
+  compliance_gdpr/        consent, export, deletion, consent UI (Flutter)
+  compliance_integrity/   Play Integrity + App Attest plugin (Flutter, Kotlin, Swift)
+  compliance_kit/         umbrella package and ComplianceKit.init
+server/                   reference verification server (Dart, not published)
+docs/                     guides
+```
+
+Every Flutter package has a runnable `example/` app.
+
+## Security
+
+Please report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Release steps are in [RELEASE.md](RELEASE.md).
+
 ## Development
 
 A [Dart pub workspace](https://dart.dev/tools/pub/workspaces) managed with [melos](https://melos.invertase.dev) 8.
@@ -71,7 +99,7 @@ dart run melos run coverage --no-select          # pure Dart packages, 90% line 
 dart run melos run publish-dry-run --no-select
 ```
 
-Requirements: Flutter 3.47.7 stable (Dart 3.13.5) for development. Packages declare `sdk: ^3.9.0` and `flutter: >=3.35.0`. Release steps are in [RELEASE.md](RELEASE.md).
+Requirements: Flutter 3.47.7 stable (Dart 3.13.5) for development. Packages declare `sdk: ^3.9.0` and `flutter: >=3.35.0`.
 
 ## Disclaimer
 

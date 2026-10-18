@@ -1,11 +1,14 @@
 ## 0.1.0
 
-- Initial release.
-- `ComplianceLogger` with six levels, lazy messages, child loggers and sink error isolation.
-- Redaction of message, error text, stack trace text and structured fields before any sink runs.
-- Built-in rules: authorization/bearer, sensitive fields, JWT, API keys, payment cards (Luhn), IBAN (mod-97), email, phone, IPv4/IPv6 (off by default).
-- Mask modes: partial, full and keyed hash (HMAC-SHA-256).
-- Custom regex and function rules, allowlist, configurable sensitive keys.
+Initial release.
+
+- `ComplianceLogger` with six levels (`trace` to `fatal`), lazy messages, child loggers and isolated sinks: a failing sink, async sink or error handler never breaks logging or other sinks.
+- Redaction of the message, the error's text, the stack trace text and structured fields before any sink runs. The original error object is never passed to sinks.
+- Built-in rules, each configurable: authorization headers and bearer/basic credentials, sensitive fields (`password=`, JSON, query strings, bracketed keys, also inside other values), JWTs, API keys (AWS, Google, GitHub, Stripe, Slack, `sk-`, PEM private keys, generic high-entropy keys), payment cards (network prefix + Luhn), IBANs (country length + mod-97), email addresses (including internationalised and URL-encoded), international phone numbers (national formats opt-in), IPv4/IPv6 (off by default).
+- Mask modes: partial, full and keyed hash (HMAC-SHA-256 with an app-supplied key).
+- Custom regex and function rules, allowlist and allow patterns, configurable sensitive keys.
+- Structured values: recursive maps and lists, sensitive map keys, cycle detection, `maxDepth` and `maxCollectionLength` limits (counted as `max_depth` / `truncated`).
+- Fails closed: if a rule or a `toString()` throws, the text becomes `[REDACTED:redaction_error]`.
 - Sinks: `ConsoleSink`, `MemorySink`, `CallbackSink`.
-- Optional `log_redaction` audit events through `compliance_core`.
-- Hardened against bypasses found in review: sensitive pairs inside other values, keys before PEM blocks, throwing `toString()`, async sink errors, CVV-suffixed card numbers, numbers after `:`/`/`, lowercase IBANs, internationalised and URL-encoded emails, quoted and multi-line authorization headers.
+- Optional `log_redaction` / `log_redaction_failed` audit events through `compliance_core`, with per-rule counts only.
+- False-positive tests for versions, dates, timestamps, order ids, UUIDs, hashes, paths and stack frames; benchmark in `benchmark/`.
