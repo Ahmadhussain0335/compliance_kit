@@ -11,6 +11,7 @@ workspace:
   - packages/compliance_gdpr
   - packages/compliance_gdpr/example
   - packages/compliance_integrity
+  - packages/compliance_integrity/example
   - packages/compliance_kit
 
 dev_dependencies:
