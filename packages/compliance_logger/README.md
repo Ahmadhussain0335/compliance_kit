@@ -99,19 +99,21 @@ Rules run in this order. Text replaced by one rule is not seen by later rules.
 | id | Default | Detects | Partial mode |
 |---|---|---|---|
 | `bearer_token` | on | `Authorization:` header values, `Bearer <token>`, `Basic <base64 user:pass>` | full mask |
-| `sensitive_field` | on | `password=…`, `?token=…`, `"secret": "…"`, `pin: 1234` using `SensitiveKeys` | full mask |
+| `sensitive_field` | on | `password=…`, `?token=…`, `"secret": "…"`, `pin: 1234`, `user[password]=…`, `pass => …` using `SensitiveKeys`, also inside other values (`Error: password=…`) | full mask |
 | `jwt` | on | `eyJ….eyJ….sig` | header kept |
-| `api_key` | on | AWS, Google, GitHub, Stripe, Slack, `sk-` keys, PEM private keys, generic high-entropy strings (32+ chars, mixed case and digits, entropy ≥ 4 bits/char) | first 4 chars |
+| `api_key` | on | AWS, Google, GitHub, Stripe, Slack, `sk-` keys, PEM private keys (a truncated block is masked to the end), generic high-entropy strings (32+ chars, mixed case and digits, entropy ≥ 4 bits/char) | first 4 chars |
 | `iban` | on | Country-specific length and mod-97 checksum | `DE****3000` |
 | `credit_card` | on | 13-19 digits, known network prefix, Luhn checksum | `****1111` |
-| `email` | on | Email addresses | `j***@example.com` |
+| `email` | on | Email addresses, including internationalised (`jäne@exämple.de`) and URL-encoded (`%40`) | `j***@example.com` |
 | `phone` | on | International numbers with `+` or `00` (8-15 digits). National formats with `matchNationalPhoneNumbers: true` | `+44********58` |
 | `ip_address` | **off** | IPv4 (octets ≤ 255) and IPv6 (validated) | `192.168.*.*` |
 
 Additional behaviour:
 
 - **Structured fields**: values under keys such as `password`, `token`, `secret`, `authorization`, `apiKey`, `cookie`, `pin`, `otp` (see `SensitiveKeys.defaults`) are replaced by `[REDACTED:sensitive_key]` whatever their type. Other strings are redacted with the rules. Integers are checked too, so a card number stored as `int` is masked. Cycles and nesting deeper than `maxDepth` are handled.
-- **Fail closed**: if a rule throws, the whole string becomes `[REDACTED:redaction_error]`. The raw text is never used as a fallback.
+- **Fail closed**: if a rule throws, the whole string becomes `[REDACTED:redaction_error]`. The same applies when a lazy message, `toString()` of a message, error, field value or map key throws, because the exception text may contain the raw value. The raw text is never used as a fallback, and logging never throws into the app.
+- **Sink isolation**: an exception from a sink, from an async `CallbackSink`, or from `onSinkError` itself does not stop other sinks.
+- **Large values**: `redactValue` keeps at most `maxCollectionLength` (default 1000) elements per collection and `maxDepth` (default 16) levels.
 - **False positives**: the test suite checks that version numbers, dates, ISO timestamps, epoch times, order ids, UUIDs, git hashes, file paths and stack frames are not changed.
 
 ### Hash mode
@@ -130,11 +132,11 @@ Regular expressions are compiled once. Each rule first runs a cheap check and sk
 
 | Case | AOT (µs/op) | JIT (µs/op) |
 |---|---|---|
-| Clean short message (52 chars) | 3.5 | 4.7 |
-| Message with 4 PII values (130 chars) | 29.0 | 27.5 |
-| Clean 3.5 KB message | 42.9 | 52.5 |
-| `redactValue` on a nested map | 40.7 | 42.1 |
-| `logger.info` with PII, null sink | 25.4 | 25.9 |
+| Clean short message (52 chars) | 3.4 | 4.8 |
+| Message with 4 PII values (130 chars) | 17.9 | 22.7 |
+| Clean 3.5 KB message | 48.2 | 60.4 |
+| `redactValue` on a nested map | 49.4 | 54.2 |
+| `logger.info` with PII, null sink | 19.3 | 24.7 |
 
 Run it yourself:
 
@@ -150,7 +152,10 @@ dart compile exe benchmark/redaction_benchmark.dart -o bench && ./bench
 - Unquoted values with spaces (`password: my secret`) are masked only up to the first space. Quoted values are masked completely.
 - National phone formats are off by default because they collide with other numbers. Enabling them increases false positives.
 - A 16-digit number with a valid card prefix passes the Luhn check about one time in ten, so some order ids may be masked. Over-redaction is the chosen failure direction.
-- The `ip_address` rule masks four-part version numbers such as `1.2.3.4`.
+- The `ip_address` rule masks four-part version numbers such as `1.2.3.4`, and does not detect an IPv6 address directly after a colon (`addr:2001:db8::1`).
+- The allowlist applies to every rule. An allowlisted value is kept even where it appears as a password.
+- With `auditTrail` set, every record with a redaction produces one `log_redaction` event. Use a bounded or aggregating `AuditTrail` for chatty logs.
+- When you pass `rules:` explicitly, `Redactor(sensitiveKeys:)` only affects map keys. Pass the same keys to `BuiltInRules.defaults(sensitiveKeys:)` for text.
 - Only the redacted text reaches sinks, so you lose the original exception type in sinks. Log what you need explicitly.
 - Redaction runs synchronously on the calling isolate. Very large messages cost proportionally more time.
 

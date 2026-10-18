@@ -8,3 +8,4 @@
 - Custom regex and function rules, allowlist, configurable sensitive keys.
 - Sinks: `ConsoleSink`, `MemorySink`, `CallbackSink`.
 - Optional `log_redaction` audit events through `compliance_core`.
+- Hardened against bypasses found in review: sensitive pairs inside other values, keys before PEM blocks, throwing `toString()`, async sink errors, CVV-suffixed card numbers, numbers after `:`/`/`, lowercase IBANs, internationalised and URL-encoded emails, quoted and multi-line authorization headers.

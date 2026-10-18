@@ -29,9 +29,6 @@ class ApiKeyRule extends RedactionRule {
   final double minEntropy;
 
   static final RegExp _pemHint = RegExp('PRIVATE KEY-----');
-  static final RegExp _pem = RegExp(
-    r'-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----',
-  );
 
   // Known formats, matched against runs of [A-Za-z0-9+/_-] found by the
   // linear scan in findSpans. Each must match the start of a run.
@@ -59,12 +56,15 @@ class ApiKeyRule extends RedactionRule {
 
   @override
   Iterable<RedactionSpan> findSpans(String input) sync* {
-    var pemEnd = 0;
-    if (_pemHint.hasMatch(input)) {
-      for (final m in _pem.allMatches(input)) {
-        yield RedactionSpan(start: m.start, end: m.end, value: m[0]!);
-        pemEnd = m.end;
-      }
+    final pems = _pemHint.hasMatch(input)
+        ? _findPemBlocks(input)
+        : const <(int, int)>[];
+    for (final (start, end) in pems) {
+      yield RedactionSpan(
+        start: start,
+        end: end,
+        value: input.substring(start, end),
+      );
     }
     if (input.length < _minKnownLength) return;
     // Linear scan for runs of [A-Za-z0-9+/_-] followed by up to two '='.
@@ -87,7 +87,8 @@ class ApiKeyRule extends RedactionRule {
         padding++;
       }
       final bodyLength = i - start;
-      if (bodyLength < _minKnownLength || start < pemEnd) {
+      if (bodyLength < _minKnownLength ||
+          pems.any((p) => start < p.$2 && end > p.$1)) {
         i = end;
         continue;
       }
@@ -103,11 +104,7 @@ class ApiKeyRule extends RedactionRule {
       }
       final followedByPadding =
           end < input.length && input.codeUnitAt(end) == 0x3D;
-      final precededByPadding =
-          start > 0 && input.codeUnitAt(start - 1) == 0x3D;
-      if (bodyLength >= _minGenericLength &&
-          !followedByPadding &&
-          !precededByPadding) {
+      if (bodyLength >= _minGenericLength && !followedByPadding) {
         final value = input.substring(start, end);
         if (isHighEntropyKey(value, minEntropy)) {
           yield RedactionSpan(start: start, end: end, value: value);
@@ -115,6 +112,34 @@ class ApiKeyRule extends RedactionRule {
       }
       i = end;
     }
+  }
+
+  /// Finds PEM private key blocks with a linear scan. A block without an
+  /// END line (for example in a truncated log) extends to the end of the
+  /// input, so the key material is never partly shown.
+  static List<(int, int)> _findPemBlocks(String input) {
+    final blocks = <(int, int)>[];
+    var from = 0;
+    while (true) {
+      final begin = input.indexOf('-----BEGIN ', from);
+      if (begin < 0) break;
+      final headerEnd = input.indexOf('-----', begin + 11);
+      if (headerEnd < 0) break;
+      final label = input.substring(begin + 11, headerEnd);
+      if (!label.endsWith('PRIVATE KEY') || label.contains('\n')) {
+        from = begin + 11;
+        continue;
+      }
+      final endMarker = input.indexOf('-----END ', headerEnd + 5);
+      final close = endMarker < 0 ? -1 : input.indexOf('-----', endMarker + 9);
+      if (close < 0) {
+        blocks.add((begin, input.length));
+        break;
+      }
+      blocks.add((begin, close + 5));
+      from = close + 5;
+    }
+    return blocks;
   }
 
   static String? _matchKnown(String run) {

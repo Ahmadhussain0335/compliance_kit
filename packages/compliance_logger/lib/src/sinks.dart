@@ -61,9 +61,16 @@ final class ConsoleSink extends LogSink {
       ..write(record.message);
     final fields = record.fields;
     if (fields != null && fields.isNotEmpty) {
+      String encoded;
+      try {
+        encoded = jsonEncode(fields);
+      } on Object {
+        // For example NaN or Infinity values, which JSON cannot represent.
+        encoded = fields.toString();
+      }
       buffer
         ..write(' ')
-        ..write(jsonEncode(fields));
+        ..write(encoded);
     }
     if (record.error != null) {
       buffer

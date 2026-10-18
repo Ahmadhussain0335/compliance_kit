@@ -27,7 +27,7 @@ class PhoneRule extends RedactionRule {
   final bool matchNational;
 
   static final RegExp _international = RegExp(
-    r'(?<![\w+.:/\-])(?<!\d[ .\-/])(?:\+|00) ?\(?[1-9]\)?(?:[ .\-/]?\(?\d\)?){7,14}(?![\w+]|[.:/\-]\d)',
+    r'(?<![\w+.\-])(?:\+|(?<![:/])(?<!\d[ .\-/])00) ?\(?[1-9]\)?(?:[ .\-/]?\(?\d\)?){7,14}(?![\w+]|[.:/\-]\d)',
   );
   static final RegExp _national = RegExp(
     r'(?<![\w+.:/\-])(?<!\d[ .\-/])(?:\(\d{2,5}\) ?|0\d{2,4}[ .\-/]?)\d{3,4}[ .\-]?\d{3,5}(?![\w+]|[.:/\-]\d)',

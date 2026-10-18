@@ -47,9 +47,16 @@ final class Redactor {
   ///   key from secure storage if hashes must be comparable across app
   ///   restarts. If omitted, a random per-process key is used.
   /// * [maxDepth]: nesting limit for [redactValue].
+  /// * [maxCollectionLength]: maximum number of elements kept per list or
+  ///   map in [redactValue]; the rest is replaced by [truncatedMask].
+  ///
+  /// When [rules] is given, [sensitiveKeys] only affects map keys in
+  /// [redactValue]. Pass the same keys to `BuiltInRules.defaults` to apply
+  /// them to text as well.
   ///
   /// Throws [InvalidConfigurationException] for invalid or duplicate rule
-  /// ids, a short [hashKey] or a non-positive [maxDepth].
+  /// ids, a short [hashKey], or a non-positive [maxDepth] or
+  /// [maxCollectionLength].
   Redactor({
     List<RedactionRule>? rules,
     List<RedactionRule> customRules = const [],
@@ -58,6 +65,7 @@ final class Redactor {
     SensitiveKeys? sensitiveKeys,
     List<int>? hashKey,
     this.maxDepth = 16,
+    this.maxCollectionLength = 1000,
   }) : rules = List.unmodifiable([
          ...rules ?? BuiltInRules.defaults(sensitiveKeys: sensitiveKeys),
          ...customRules,
@@ -66,9 +74,9 @@ final class Redactor {
        allowPatterns = List.unmodifiable(allowPatterns),
        sensitiveKeys = sensitiveKeys ?? SensitiveKeys.defaults,
        _masker = Masker(hashKey: hashKey) {
-    if (maxDepth <= 0) {
+    if (maxDepth <= 0 || maxCollectionLength <= 0) {
       throw const InvalidConfigurationException(
-        'maxDepth must be greater than zero.',
+        'maxDepth and maxCollectionLength must be greater than zero.',
       );
     }
     final seen = <String>{};
@@ -95,6 +103,10 @@ final class Redactor {
   /// Replacement for a value nested deeper than [maxDepth].
   static const String maxDepthMask = '[REDACTED:max_depth]';
 
+  /// Appended to a list, or used as a key, when a collection is longer than
+  /// [maxCollectionLength].
+  static const String truncatedMask = '[REDACTED:truncated]';
+
   /// Replacement for a collection that contains itself.
   static const String cycleMask = '[REDACTED:cycle]';
 
@@ -118,6 +130,9 @@ final class Redactor {
 
   /// Maximum nesting depth handled by [redactValue].
   final int maxDepth;
+
+  /// Maximum number of elements kept per collection by [redactValue].
+  final int maxCollectionLength;
 
   final Masker _masker;
   late final List<RedactionRule> _activeRules;
@@ -172,10 +187,25 @@ final class Redactor {
       try {
         if (value is Map) {
           final out = <String, Object?>{};
+          var kept = 0;
           for (final entry in value.entries) {
-            final key = entry.key.toString();
-            final safeKey = _redactString(key, counts);
-            if (sensitiveKeys.matches(key)) {
+            if (kept++ >= maxCollectionLength) {
+              out[truncatedMask] = truncatedMask;
+              break;
+            }
+            final key = _safeToString(entry.key, counts);
+            var safeKey = key == null
+                ? failureMask
+                : _redactString(key, counts);
+            // Distinct keys can redact to the same text; keep both values.
+            if (out.containsKey(safeKey)) {
+              var n = 2;
+              while (out.containsKey('$safeKey#$n')) {
+                n++;
+              }
+              safeKey = '$safeKey#$n';
+            }
+            if (key == null || sensitiveKeys.matches(key)) {
               out[safeKey] = sensitiveKeyMask;
               counts['sensitive_key'] = (counts['sensitive_key'] ?? 0) + 1;
             } else {
@@ -189,15 +219,36 @@ final class Redactor {
           }
           return out;
         }
-        return [
-          for (final item in value as Iterable<Object?>)
-            _redactValue(item, counts, depth + 1, visiting),
-        ];
+        final out = <Object?>[];
+        for (final item in value as Iterable<Object?>) {
+          if (out.length >= maxCollectionLength) {
+            out.add(truncatedMask);
+            break;
+          }
+          out.add(_redactValue(item, counts, depth + 1, visiting));
+        }
+        return out;
+      } on Object {
+        // A collection whose iteration throws is dropped as a whole.
+        counts[failureRuleId] = (counts[failureRuleId] ?? 0) + 1;
+        return failureMask;
       } finally {
         visiting.remove(value);
       }
     }
-    return _redactString(value.toString(), counts);
+    final text = _safeToString(value, counts);
+    return text == null ? failureMask : _redactString(text, counts);
+  }
+
+  /// Calls `toString()` on [value]. Returns `null` and counts a failure if it
+  /// throws, because the exception text may contain the raw value.
+  String? _safeToString(Object? value, Map<String, int> counts) {
+    try {
+      return value.toString();
+    } on Object {
+      counts[failureRuleId] = (counts[failureRuleId] ?? 0) + 1;
+      return null;
+    }
   }
 
   String _redactString(String input, Map<String, int> counts) {

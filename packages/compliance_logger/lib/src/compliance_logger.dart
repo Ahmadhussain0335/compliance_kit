@@ -188,37 +188,78 @@ final class ComplianceLogger {
   }) {
     if (!isEnabled(level) || sinks.isEmpty) return;
     final counts = <String, int>{};
-    final resolved = message is Object? Function() ? message() : message;
+    final Map<String, Object?>? safeFields;
+    if (fields == null) {
+      safeFields = null;
+    } else {
+      final redacted = redactor.redactValue(fields, counts: counts);
+      safeFields = redacted is Map<String, Object?>
+          ? redacted
+          : {'fields': redacted};
+    }
     final record = LogRecord(
       level: level,
       loggerName: name,
-      message: _text(resolved.toString(), counts),
+      message: _safeText(
+        () => message is Object? Function() ? message() : message,
+        counts,
+      ),
       time: _clock(),
-      error: error == null ? null : _text(error.toString(), counts),
+      error: error == null ? null : _safeText(() => error, counts),
       stackTrace: stackTrace == null
           ? null
-          : _text(stackTrace.toString(), counts),
-      fields: fields == null
-          ? null
-          : redactor.redactValue(fields, counts: counts)
-                as Map<String, Object?>?,
+          : _safeText(() => stackTrace, counts),
+      fields: safeFields,
       redactions: counts,
     );
     for (final sink in sinks) {
       try {
-        sink.write(record);
+        // A sink declared `void` may still return a Future (for example an
+        // async CallbackSink); route its errors to onSinkError as well.
+        final result = (sink.write as Object? Function(LogRecord))(record);
+        if (result is Future<Object?>) {
+          result.then<void>((_) {}, onError: _reportSinkError).ignore();
+        }
       } on Object catch (e, st) {
-        onSinkError?.call(e, st);
+        _reportSinkError(e, st);
       }
     }
     _audit(level, counts);
   }
 
-  /// Closes every sink.
+  /// Closes every sink. A sink that fails to close is reported to
+  /// [onSinkError] and does not stop the others.
   Future<void> close() async {
     for (final sink in sinks) {
-      await sink.close();
+      try {
+        await sink.close();
+      } on Object catch (e, st) {
+        _reportSinkError(e, st);
+      }
     }
+  }
+
+  void _reportSinkError(Object error, StackTrace stackTrace) {
+    try {
+      onSinkError?.call(error, stackTrace);
+    } on Object {
+      // The error handler itself must not break logging.
+    }
+  }
+
+  /// Produces text with [produce], redacts it, and fails closed: if
+  /// producing the text or calling `toString()` throws, the result is
+  /// `Redactor.failureMask`, because the exception may contain the raw text.
+  String _safeText(Object? Function() produce, Map<String, int> counts) {
+    final String raw;
+    try {
+      raw = produce().toString();
+    } on Object {
+      counts[Redactor.failureRuleId] =
+          (counts[Redactor.failureRuleId] ?? 0) + 1;
+      return Redactor.failureMask;
+    }
+    return _text(raw, counts);
   }
 
   String _text(String input, Map<String, int> counts) {

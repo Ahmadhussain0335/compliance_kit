@@ -30,13 +30,14 @@ class IbanRule extends RedactionRule {
     'UA': 29, 'VA': 22, 'VG': 24, 'XK': 20, 'YE': 30, //
   };
 
-  static final RegExp _start = RegExp(r'[A-Z][A-Z]\d\d');
+  static final RegExp _start = RegExp(r'[A-Za-z][A-Za-z]\d\d');
 
   @override
   Iterable<RedactionSpan> findSpans(String input) sync* {
     for (final m in _start.allMatches(input)) {
       if (m.start > 0 && _isAlnum(input.codeUnitAt(m.start - 1))) continue;
-      final length = countryLengths[input.substring(m.start, m.start + 2)];
+      final length =
+          countryLengths[input.substring(m.start, m.start + 2).toUpperCase()];
       if (length == null) continue;
       final end = _scan(input, m.start, length);
       if (end == null) continue;
@@ -80,7 +81,7 @@ class IbanRule extends RedactionRule {
   @override
   String partialMask(String value) {
     final compact = value.replaceAll(' ', '');
-    return '${compact.substring(0, 2)}****'
+    return '${compact.substring(0, 2).toUpperCase()}****'
         '${compact.substring(compact.length - 4)}';
   }
 

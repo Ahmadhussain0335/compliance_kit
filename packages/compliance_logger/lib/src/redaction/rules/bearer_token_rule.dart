@@ -5,12 +5,14 @@ import '../redaction_rule.dart';
 /// Masks `Authorization` header values and `Bearer` / `Basic` credentials.
 ///
 /// Matches:
-/// * `Authorization: <anything up to end of line>` and the JSON form
-///   `"authorization": "<value>"`. The whole value is masked, including the
-///   scheme.
-/// * `Bearer <token>` where the token is at least 8 characters and contains
-///   a digit or one of `-._~+/=`, which skips prose such as
-///   "Bearer authentication".
+/// * `Authorization: <value>` and the JSON form `"authorization": "<value>"`.
+///   The whole value is masked, including the scheme: up to the closing
+///   quote if the value is quoted, otherwise up to the end of the line. If
+///   the line holds only the scheme (`Authorization: Bearer` with the token
+///   on the next line), the next token is masked too.
+/// * `Bearer <token>` where the token is at least 20 characters, or at
+///   least 8 characters containing a digit or one of `-._~+/=`. This skips
+///   prose such as "Bearer authentication".
 /// * `Basic <credentials>` where the credentials are base64 that decodes to
 ///   `user:password`.
 ///
@@ -21,9 +23,14 @@ class BearerTokenRule extends RedactionRule {
     : super(id: 'bearer_token');
 
   static final RegExp _header = RegExp(
-    r'''(authorization["']?\s*[:=]\s*["']?)([^"'\r\n,}]+)''',
+    r'''authorization["']?\s*[:=][ \t]*(["']?)''',
     caseSensitive: false,
   );
+  static final RegExp _schemeOnly = RegExp(
+    r'^(?:bearer|basic|digest|token|negotiate|ntlm)$',
+    caseSensitive: false,
+  );
+  static final RegExp _nextToken = RegExp(r'\s*\S+');
   static final RegExp _bearer = RegExp(
     r'\b(bearer\s+)([A-Za-z0-9\-._~+/]{8,}=*)',
     caseSensitive: false,
@@ -44,18 +51,12 @@ class BearerTokenRule extends RedactionRule {
   Iterable<RedactionSpan> findSpans(String input) sync* {
     if (!_hints.any((h) => h.hasMatch(input))) return;
     for (final m in _header.allMatches(input)) {
-      final value = m[2]!.trimRight();
-      if (value.isEmpty) continue;
-      yield RedactionSpan(
-        start: m.start,
-        end: m.start + m[1]!.length + value.length,
-        prefix: m[1]!,
-        value: value,
-      );
+      final span = _headerSpan(input, m);
+      if (span != null) yield span;
     }
     for (final m in _bearer.allMatches(input)) {
       final token = m[2]!;
-      if (!_tokenMarker.hasMatch(token)) continue;
+      if (token.length < 20 && !_tokenMarker.hasMatch(token)) continue;
       yield RedactionSpan(
         start: m.start,
         end: m.end,
@@ -72,6 +73,38 @@ class BearerTokenRule extends RedactionRule {
         value: m[2]!,
       );
     }
+  }
+
+  static RedactionSpan? _headerSpan(String input, RegExpMatch m) {
+    final quote = m[1]!;
+    final valueStart = m.end;
+    var end = valueStart;
+    if (quote.isNotEmpty) {
+      while (end < input.length &&
+          input[end] != quote &&
+          input[end] != '\n' &&
+          input[end] != '\r') {
+        end++;
+      }
+    } else {
+      while (end < input.length && input[end] != '\n' && input[end] != '\r') {
+        end++;
+      }
+      while (end > valueStart && input[end - 1].trim().isEmpty) {
+        end--;
+      }
+      if (_schemeOnly.hasMatch(input.substring(valueStart, end))) {
+        final next = _nextToken.matchAsPrefix(input, end);
+        if (next != null) end = next.end;
+      }
+    }
+    if (end == valueStart) return null;
+    return RedactionSpan(
+      start: m.start,
+      end: end,
+      prefix: input.substring(m.start, valueStart),
+      value: input.substring(valueStart, end),
+    );
   }
 
   static bool _isBasicCredential(String encoded) {

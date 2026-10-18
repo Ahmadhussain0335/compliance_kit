@@ -19,7 +19,7 @@ class CreditCardRule extends RedactionRule {
   const CreditCardRule({super.enabled, super.mode}) : super(id: 'credit_card');
 
   static final RegExp _candidate = RegExp(
-    r'(?<![\w.+\-/:])\d(?:[ \-]?\d){12,18}(?![\w\-/:]|\.\d)',
+    r'(?<![\w.+\-])\d(?:[ \-]?\d){12,18}(?![\w\-/:]|\.\d)',
   );
   static final RegExp _hint = RegExp(r'\d\d\d\d');
   static final RegExp _separators = RegExp(r'[ \-]');
@@ -28,11 +28,29 @@ class CreditCardRule extends RedactionRule {
   Iterable<RedactionSpan> findSpans(String input) sync* {
     if (!_hint.hasMatch(input)) return;
     for (final m in _candidate.allMatches(input)) {
-      final raw = m[0]!;
-      if (isCardNumber(raw)) {
-        yield RedactionSpan(start: m.start, end: m.end, value: raw);
+      final raw = _longestCardPrefix(m[0]!);
+      if (raw != null) {
+        yield RedactionSpan(
+          start: m.start,
+          end: m.start + raw.length,
+          value: raw,
+        );
       }
     }
+  }
+
+  /// Returns [raw] if it is a card number, otherwise the longest prefix
+  /// that ends before a separator and is one, for example when a CVV
+  /// follows the number (`4111 1111 1111 1111 123`).
+  static String? _longestCardPrefix(String raw) {
+    if (isCardNumber(raw)) return raw;
+    for (var i = raw.length - 1; i > 0; i--) {
+      final c = raw.codeUnitAt(i);
+      if (c != 0x20 && c != 0x2D) continue;
+      final prefix = raw.substring(0, i);
+      if (isCardNumber(prefix)) return prefix;
+    }
+    return null;
   }
 
   @override
