@@ -1,6 +1,6 @@
-## 0.1.0
+## 0.1.0-beta.1 - 2026-10-18
 
-Initial release.
+First beta release. APIs may change before 1.0.0.
 
 - Re-exports `compliance_core`, `compliance_logger`, `compliance_gdpr` and `compliance_integrity`.
 - `ComplianceKit.init` creates the logger, consent manager, data exporter, deletion manager and integrity client, all recording into one shared audit trail.

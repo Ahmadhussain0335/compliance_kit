@@ -1,6 +1,6 @@
-## 0.1.0
+## 0.1.0-beta.1 - 2026-10-18
 
-Initial release.
+First beta release. APIs may change before 1.0.0.
 
 - `ConsentManager`: purposes defined by the app, nothing optional enabled by default, strictly necessary purposes always active, policy versioning (consent from an older version does not count), append-only history, `changes` stream and `watch(purposeId)`, one-call `withdraw`, `reset()` for account deletion.
 - `ConsentStore` interface with `InMemoryConsentStore`; stored records are validated on load.

@@ -1,6 +1,6 @@
-## 0.1.0
+## 0.1.0-beta.1 - 2026-10-18
 
-Initial release.
+First beta release. APIs may change before 1.0.0.
 
 - `Integrity` with `isSupported`, `prepare`, `requestToken` and `reset`. No method throws.
 - Typed results (`IntegrityResult`, sealed): success, unsupported, Play services missing, network error, rate limited, configuration error, platform error; failures carry the platform code and a retry hint.
