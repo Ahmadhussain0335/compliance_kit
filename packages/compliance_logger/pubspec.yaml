@@ -1,0 +1,23 @@
+name: compliance_logger
+description: PII-redacting logger for Dart and Flutter. Masks emails, phone numbers, tokens, API keys, card numbers and IBANs before any sink sees them.
+version: 0.1.0
+repository: https://github.com/Ahmadhussain0335/compliance_kit/tree/main/packages/compliance_logger
+issue_tracker: https://github.com/Ahmadhussain0335/compliance_kit/issues
+topics:
+  - logging
+  - privacy
+  - security
+  - gdpr
+  - compliance
+
+environment:
+  sdk: ^3.9.0
+
+resolution: workspace
+
+dependencies:
+  compliance_core: ^0.1.0
+  crypto: ^3.0.7
+
+dev_dependencies:
+  test: ^1.33.0
