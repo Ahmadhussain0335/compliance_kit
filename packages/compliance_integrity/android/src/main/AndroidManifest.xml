@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Package visibility (Android 11+): lets isSupported() check whether the
+      Play Store and Google Play services are installed. No permissions are
+      requested by this plugin.
+    -->
+    <queries>
+        <package android:name="com.android.vending" />
+        <package android:name="com.google.android.gms" />
+    </queries>
+</manifest>
