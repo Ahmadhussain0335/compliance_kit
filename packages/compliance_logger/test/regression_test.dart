@@ -115,7 +115,7 @@ void main() {
     });
 
     test('generic key after "=" is masked', () {
-      const key = 'Q2xhaW1zR2VuZXJpY0tleTEyMzQ1Njc4OTBhYmNk';
+      final key = _fake(['Q2xhaW1zR2VuZXJpY0tl', 'eTEyMzQ1Njc4OTBhYmNk']);
       expectMasked('blob=$key', key);
     });
   });
