@@ -20,6 +20,8 @@ dependencies:
   compliance_core: ^0.1.0
   flutter:
     sdk: flutter
+  # Imported by the Pigeon-generated code; pinned by the Flutter SDK.
+  meta: ^1.16.0
 
 dev_dependencies:
   flutter_test:
