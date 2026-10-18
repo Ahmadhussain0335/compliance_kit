@@ -60,3 +60,55 @@ jobs:
           name: lcov
           path: packages/*/coverage/lcov.info
           if-no-files-found: ignore
+
+  android:
+    name: Android plugin unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Build example (generates Gradle setup)
+        working-directory: packages/compliance_integrity/example
+        run: flutter build apk --debug
+
+      - name: Kotlin unit tests
+        working-directory: packages/compliance_integrity/example/android
+        run: ./gradlew :compliance_integrity:testDebugUnitTest
+
+  ios:
+    name: iOS plugin build
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Build example for the simulator
+        working-directory: packages/compliance_integrity/example
+        run: flutter build ios --simulator --debug
