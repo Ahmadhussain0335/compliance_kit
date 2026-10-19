@@ -1,5 +1,9 @@
 # compliance_logger
 
+[![pub version](https://img.shields.io/pub/v/compliance_logger?include_prereleases)](https://pub.dev/packages/compliance_logger) [![pub points](https://img.shields.io/pub/points/compliance_logger)](https://pub.dev/packages/compliance_logger/score) [![pub likes](https://img.shields.io/pub/likes/compliance_logger)](https://pub.dev/packages/compliance_logger/score)
+
+> **Beta: 0.1.0-beta.1.** APIs may change before 1.0.0. Feedback welcome via [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues).
+
 A PII-redacting logger for Dart and Flutter. Every message, error, stack trace and structured field passes through a redactor **before** any sink receives it. Emails, phone numbers, tokens, API keys, payment card numbers and IBANs are masked by default.
 
 Pure Dart: works in Flutter apps, on the server and on the web.
@@ -7,7 +11,14 @@ Pure Dart: works in Flutter apps, on the server and on the web.
 ## Install
 
 ```sh
-dart pub add compliance_logger
+dart pub add compliance_logger:^0.1.0-beta.1
+```
+
+or in `pubspec.yaml`:
+
+```yaml
+dependencies:
+  compliance_logger: ^0.1.0-beta.1
 ```
 
 ## Quick start

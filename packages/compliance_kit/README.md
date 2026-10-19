@@ -1,5 +1,9 @@
 # compliance_kit
 
+[![pub version](https://img.shields.io/pub/v/compliance_kit?include_prereleases)](https://pub.dev/packages/compliance_kit) [![pub points](https://img.shields.io/pub/points/compliance_kit)](https://pub.dev/packages/compliance_kit/score) [![pub likes](https://img.shields.io/pub/likes/compliance_kit)](https://pub.dev/packages/compliance_kit/score)
+
+> **Beta: 0.1.0-beta.1.** APIs may change before 1.0.0. Feedback welcome via [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues).
+
 Privacy and security toolkit for Flutter. One dependency for the whole Compliance Kit family:
 
 | Module | What it does |
@@ -12,7 +16,14 @@ Privacy and security toolkit for Flutter. One dependency for the whole Complianc
 ## Install
 
 ```sh
-flutter pub add compliance_kit
+flutter pub add compliance_kit:^0.1.0-beta.1
+```
+
+or in `pubspec.yaml`:
+
+```yaml
+dependencies:
+  compliance_kit: ^0.1.0-beta.1
 ```
 
 ## Quick start
@@ -31,14 +42,17 @@ Future<void> main() async {
     consentStore: MyConsentStore(),                     // implement ConsentStore
     forwardLogs: (record) => crashReporter.log(record.message),
     forwardLogsPurpose: 'crash_reporting',              // forward only with consent
-    serverDeletion: api.deleteAccount,                  // returns ErasureStatus
+    serverDeletion: api.deleteAccount,                  // Future<ErasureStatus> Function()
     cloudProjectNumber: 123456789012,                   // Android Play Integrity
   );
 
   kit.logger.info('Signed in as jane.doe@example.com'); // ... [REDACTED:email]
   kit.consent!.watch('analytics').listen(analytics.setEnabled);
-  kit.exporter.register(CallbackDataSource('profile', profileDao.toJson));
-  kit.deletion.register(CallbackDataEraser('profile', profileDao.wipe));
+  kit.exporter.register(CallbackDataSource('profile', () async => profileDao.toJson()));
+  kit.deletion.register(CallbackDataEraser('profile', () async {
+    await profileDao.deleteAll();
+    return ErasureStatus.deleted;
+  }));
 
   runApp(MyApp(kit: kit));
 }

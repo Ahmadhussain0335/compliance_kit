@@ -1,5 +1,11 @@
 # compliance_integrity
 
+[![pub version](https://img.shields.io/pub/v/compliance_integrity?include_prereleases)](https://pub.dev/packages/compliance_integrity) [![pub points](https://img.shields.io/pub/points/compliance_integrity)](https://pub.dev/packages/compliance_integrity/score) [![pub likes](https://img.shields.io/pub/likes/compliance_integrity)](https://pub.dev/packages/compliance_integrity/score)
+
+> **Beta: 0.1.0-beta.1.** APIs may change before 1.0.0. Feedback welcome via [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues).
+
+> **Note:** Not yet verified on physical devices. Play Integrity and App Attest flows are covered by unit tests with mocked platform interfaces only. Please report device results in [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues).
+
 App and device integrity checks for Flutter, without Firebase:
 
 - **Android**: [Google Play Integrity API](https://developer.android.com/google/play/integrity/overview), standard requests.
@@ -12,7 +18,14 @@ One Dart API, typed results, no exceptions. A reference verification server live
 ## Install
 
 ```sh
-flutter pub add compliance_integrity
+flutter pub add compliance_integrity:^0.1.0-beta.1
+```
+
+or in `pubspec.yaml`:
+
+```yaml
+dependencies:
+  compliance_integrity: ^0.1.0-beta.1
 ```
 
 ## Quick start

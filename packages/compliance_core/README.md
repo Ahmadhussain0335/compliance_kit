@@ -1,5 +1,9 @@
 # compliance_core
 
+[![pub version](https://img.shields.io/pub/v/compliance_core?include_prereleases)](https://pub.dev/packages/compliance_core) [![pub points](https://img.shields.io/pub/points/compliance_core)](https://pub.dev/packages/compliance_core/score) [![pub likes](https://img.shields.io/pub/likes/compliance_core)](https://pub.dev/packages/compliance_core/score)
+
+> **Beta: 0.1.0-beta.1.** APIs may change before 1.0.0. Feedback welcome via [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues).
+
 Shared building blocks for the [Compliance Kit](https://github.com/Ahmadhussain0335/compliance_kit) package family: an audit event model, an audit trail interface and common exception types. Pure Dart with no dependencies, so it works in Flutter apps, on the server and on the web.
 
 Most apps do not depend on this package directly. It is pulled in by `compliance_logger`, `compliance_gdpr` and `compliance_integrity`, which record their events through the same `AuditTrail`.
@@ -7,7 +11,14 @@ Most apps do not depend on this package directly. It is pulled in by `compliance
 ## Install
 
 ```sh
-dart pub add compliance_core
+dart pub add compliance_core:^0.1.0-beta.1
+```
+
+or in `pubspec.yaml`:
+
+```yaml
+dependencies:
+  compliance_core: ^0.1.0-beta.1
 ```
 
 ## Quick start

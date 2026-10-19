@@ -1,5 +1,9 @@
 # compliance_gdpr
 
+[![pub version](https://img.shields.io/pub/v/compliance_gdpr?include_prereleases)](https://pub.dev/packages/compliance_gdpr) [![pub points](https://img.shields.io/pub/points/compliance_gdpr)](https://pub.dev/packages/compliance_gdpr/score) [![pub likes](https://img.shields.io/pub/likes/compliance_gdpr)](https://pub.dev/packages/compliance_gdpr/score)
+
+> **Beta: 0.1.0-beta.1.** APIs may change before 1.0.0. Feedback welcome via [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues).
+
 GDPR building blocks for Flutter apps:
 
 - **Consent management**: granular consent per purpose, policy versioning, append-only history and change streams.
@@ -11,7 +15,14 @@ GDPR building blocks for Flutter apps:
 ## Install
 
 ```sh
-flutter pub add compliance_gdpr
+flutter pub add compliance_gdpr:^0.1.0-beta.1
+```
+
+or in `pubspec.yaml`:
+
+```yaml
+dependencies:
+  compliance_gdpr: ^0.1.0-beta.1
 ```
 
 ## Quick start
