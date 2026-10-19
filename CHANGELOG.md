@@ -2,7 +2,7 @@
 
 Release notes for the Compliance Kit family. Each package also has its own `CHANGELOG.md`, which is what pub.dev shows.
 
-## 0.1.0-beta.1 - 2026-10-18
+## 0.1.0-beta.1 - 2026-10-19
 
 First beta release of all packages. APIs may change before 1.0.0. Integrity flows are not yet verified on physical devices.
 

@@ -1,4 +1,4 @@
-## 0.1.0-beta.1 - 2026-10-18
+## 0.1.0-beta.1 - 2026-10-19
 
 First beta release. APIs may change before 1.0.0.
 

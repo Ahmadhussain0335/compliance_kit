@@ -4,8 +4,11 @@ Open-source Dart and Flutter packages that help apps implement privacy and secur
 
 [![CI](https://github.com/Ahmadhussain0335/compliance_kit/actions/workflows/ci.yaml/badge.svg)](https://github.com/Ahmadhussain0335/compliance_kit/actions/workflows/ci.yaml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![pub version](https://img.shields.io/pub/v/compliance_kit?include_prereleases)](https://pub.dev/packages/compliance_kit) [![pub points](https://img.shields.io/pub/points/compliance_kit)](https://pub.dev/packages/compliance_kit/score) [![pub likes](https://img.shields.io/pub/likes/compliance_kit)](https://pub.dev/packages/compliance_kit/score)
 
-**Status:** 0.1.0, not yet published to pub.dev. See the [changelog](CHANGELOG.md).
+> **Beta: 0.1.0-beta.1.** APIs may change before 1.0.0. Feedback welcome via [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues). See the [changelog](CHANGELOG.md).
+
+> **Note:** Not yet verified on physical devices. Play Integrity and App Attest flows are covered by unit tests with mocked platform interfaces only. Please report device results in [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues).
 
 Built for apps that have to meet GDPR, the EU Cyber Resilience Act, EN 18031 / RED delegated act and OWASP MASVS requirements. The packages implement concrete controls (redacted logs, recorded consent, export, deletion, attestation) and record evidence in one audit trail.
 
@@ -45,7 +48,7 @@ if (consent.state.needsConsent) await showConsentDialog(context, manager: consen
 consent.watch('analytics').listen(analytics.setEnabled);
 
 final exporter = DataExporter(appId: 'com.example.app')
-  ..register(CallbackDataSource('profile', profileDao.toJson));
+  ..register(CallbackDataSource('profile', () async => profileDao.toJson()));
 final export = await exporter.export();
 ```
 
@@ -58,6 +61,33 @@ if (await integrity.requestToken(challenge) case IntegritySuccess(:final token, 
   await api.verify(token, kind, challenge); // your server decides
 }
 ```
+
+## Install
+
+```sh
+flutter pub add compliance_kit:^0.1.0-beta.1          # everything
+dart pub add compliance_logger:^0.1.0-beta.1          # logger only (also for Dart servers)
+flutter pub add compliance_gdpr:^0.1.0-beta.1         # consent, export, deletion
+flutter pub add compliance_integrity:^0.1.0-beta.1    # Play Integrity + App Attest
+```
+
+## Platform support
+
+| Package | Android | iOS | Web | macOS | Windows | Linux | Dart server |
+|---|---|---|---|---|---|---|---|
+| compliance_core | yes | yes | yes | yes | yes | yes | yes |
+| compliance_logger | yes | yes | yes | yes | yes | yes | yes |
+| compliance_gdpr | yes | yes | yes | yes | yes | yes | no |
+| compliance_integrity | yes | yes | no | no | no | no | no |
+| compliance_kit | yes | yes | no | no | no | no | no |
+
+`compliance_integrity` (and therefore `compliance_kit`) contains native code for Android and iOS only. On other platforms `Integrity` returns `IntegrityUnsupported` instead of throwing.
+
+## Roadmap to 1.0.0
+
+1. **Real-device verification** of Play Integrity and App Attest (the checklist in the [compliance_integrity README](packages/compliance_integrity/README.md#manual-real-device-test-checklist)), and testing on the minimum supported Flutter version.
+2. **Community feedback** on the APIs and defaults during the beta, through [GitHub issues](https://github.com/Ahmadhussain0335/compliance_kit/issues).
+3. **API freeze**: review the public APIs, resolve breaking changes, then release 1.0.0 with semantic versioning guarantees.
 
 ## Guides
 
