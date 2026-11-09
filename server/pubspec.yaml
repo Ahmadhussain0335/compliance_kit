@@ -11,8 +11,8 @@ environment:
 resolution: workspace
 
 dependencies:
-  cbor: ^6.5.1
-  crypto: ^3.0.7
+  cbor: ^6.5.2
+  crypto: ^3.0.8
   googleapis: ^17.0.0
   googleapis_auth: ^2.3.4
   pointycastle: ^4.0.0
